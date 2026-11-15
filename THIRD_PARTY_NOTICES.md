@@ -2,6 +2,8 @@
 
 The [MIT License](LICENSE) covers the NRSW code and documentation. Dependencies, pretrained weights and datasets are available from their publishers under their respective licenses.
 
+The document images in the demo are from [IDSpace, Cactus Lab](https://huggingface.co/datasets/cactuslab/IDSpace/tree/a3de23b950d55a39fbd36cfaee16bd260c4d457d) and are shared under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The dataset uses synthetic identities and portraits.
+
 | Project | Use |
 | --- | --- |
 | [NumPy](https://github.com/numpy/numpy) | Model fitting and feature files |

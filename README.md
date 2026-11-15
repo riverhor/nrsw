@@ -2,18 +2,20 @@
 
 NRSW (Normal-Referenced Spectral Weighting) detects signs of tampering in documents with known layouts. To train a detector for a layout, provide genuine examples and a few confirmed forgeries with the suspected fields marked, such as the name or document number. To check a new document, supply its image and layout.
 
-[繁體中文](README.zh-TW.md) · [Train on your images](docs/training.md) · [Architecture](docs/architecture.md) · [Data formats](docs/data.md) · [Datasets](docs/datasets.md) · [Reproduce the paper](docs/reproduction.md)
+[繁體中文](README.zh-TW.md) · [简体中文](README.zh-CN.md) · [Train on your images](docs/training.md) · [Architecture](docs/architecture.md) · [Data formats](docs/data.md) · [Datasets](docs/datasets.md) · [Reproduce the paper](docs/reproduction.md)
 
 ## Try the demo
 
-Open the [browser demo](https://riverhor.github.io/nrsw/) to explore field scores and the decision threshold using simulated features. To run it locally, install from this directory in a Python 3.11+ virtual environment.
+Open the [browser demo](https://riverhor.github.io/nrsw/) to try unaltered and altered document images from [IDSpace](docs/datasets.md). The examples use fictional identities. Select an image to see its field weights, forgery score, and decision at a threshold calibrated on unaltered documents. The demo shows predictions computed in advance. To check your own images, use the package's image commands below.
+
+To open the demo locally, install from this directory in a Python 3.11+ virtual environment.
 
 ```console
 python -m pip install .
 nrsw serve
 ```
 
-Open [localhost:8000](http://127.0.0.1:8000). The local demo runs on CPU. To save its model, data, and metrics, run `nrsw demo --output runs/example`.
+Open [localhost:8000](http://127.0.0.1:8000). You can also train a small example model on simulated features with `nrsw demo --output runs/example`.
 
 ## Reproduce the paper
 

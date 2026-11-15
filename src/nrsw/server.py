@@ -2,7 +2,7 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 
-from .demo import WEB, browser_data
+from .demo import WEB, browser_data, specimen_browser_data
 
 
 def serve(data, port=8000):
@@ -10,10 +10,17 @@ def serve(data, port=8000):
              ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml"}
     assets = {f"/{p.name}": (types[p.suffix], p.read_bytes())
               for p in WEB.iterdir() if p.is_file() and p.suffix in types and not p.name.startswith("test")}
+    specimen_types = {".json": "application/json; charset=utf-8", ".png": "image/png",
+                      ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+    specimens = WEB / "specimens"
+    if specimens.is_dir():
+        assets.update({f"/specimens/{p.name}": (specimen_types[p.suffix], p.read_bytes())
+                       for p in specimens.iterdir() if p.is_file() and p.suffix in specimen_types})
     assets["/"] = assets["/index.html"]
     assets["/examples.json"] = ("application/json; charset=utf-8",
                                 json.dumps(data, ensure_ascii=False, allow_nan=False).encode("utf-8"))
     assets["/examples.js"] = (types[".js"], browser_data(data).encode("utf-8"))
+    assets["/specimens/examples.js"] = (types[".js"], specimen_browser_data().encode("utf-8"))
 
     class DemoHandler(BaseHTTPRequestHandler):
         def _send(self, include_body):

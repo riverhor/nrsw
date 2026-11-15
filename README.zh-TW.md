@@ -2,18 +2,20 @@
 
 正常參照譜加權（NRSW）用真件和少量已確認的偽件，為已知版型訓練偵測器。每張訓練偽件只需標出候選竄改欄位，例如姓名或證件號碼。判定新文件時，只需提供影像和版型。
 
-[English](README.md) · [訓練指南](docs/training.md) · [系統架構](docs/architecture.md) · [資料格式](docs/data.md) · [資料集下載與引用](docs/datasets.md) · [復現論文結果](docs/reproduction.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [訓練指南](docs/training.md) · [系統架構](docs/architecture.md) · [資料格式](docs/data.md) · [資料集下載與引用](docs/datasets.md) · [復現論文結果](docs/reproduction.md)
 
 ## 試用示範
 
-開啟[線上示範](https://riverhor.github.io/nrsw/)，以合成特徵查看欄位分數與判斷門檻。若要在本機執行，請在 Python 3.11 以上的虛擬環境中，從專案目錄執行下列指令。
+開啟[線上示範](https://riverhor.github.io/nrsw/)，試用 [IDSpace](docs/datasets.md) 的未竄改與已竄改文件影像。樣本身分為虛構。選取影像後可查看欄位權重、偽造分數，以及依未竄改文件校準的門檻所做的判斷。示範使用模型事先算好的結果。要偵測自己的影像，可用下方的 Python 套件指令。
+
+若要在本機開啟示範，請在 Python 3.11 以上的虛擬環境中，從專案目錄執行下列指令。
 
 ```console
 python -m pip install .
 nrsw serve
 ```
 
-在瀏覽器開啟 [localhost:8000](http://127.0.0.1:8000)。本機示範可在 CPU 執行。用 `nrsw demo --output runs/example` 可保存示範的模型、資料和評估結果。
+在瀏覽器開啟 [localhost:8000](http://127.0.0.1:8000)。也可用 `nrsw demo --output runs/example` 在本機用合成特徵訓練一個小型範例模型。
 
 ## 復現論文結果
 

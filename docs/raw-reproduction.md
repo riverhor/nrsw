@@ -50,6 +50,12 @@ To test sensitivity to JPEG with the same models and thresholds, fit and calibra
 python -m research_tools.jpeg --r5-runtime runs/paper/r5 --run runs/paper/common-jpeg freeze --native-measurements runs/paper/all/measurements --submission paper.zip
 ```
 
+To rebuild the browser demo's image examples after the original-image run, run the following command. It refits the detector for one study split, checks the new scores and thresholds against the saved results, and exports the selected held-out images with their predictions.
+
+```console
+python -m research_tools.demo_specimens --work runs/paper --output runs/demo-specimens
+```
+
 ## CrossVerify registry card
 
 ```console

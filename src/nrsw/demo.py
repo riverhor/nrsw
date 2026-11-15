@@ -103,8 +103,14 @@ def write_json(path, data):
         stream.write("\n")
 
 
-def browser_data(data):
-    return "window.NRSW_EXAMPLES = " + json.dumps(data, ensure_ascii=True, allow_nan=False) + ";\n"
+def browser_data(data, *, name="NRSW_EXAMPLES"):
+    return f"window.{name} = " + json.dumps(data, ensure_ascii=True, allow_nan=False) + ";\n"
+
+
+def specimen_browser_data():
+    path = WEB / "specimens" / "examples.json"
+    data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+    return browser_data(data, name="NRSW_SPECIMENS")
 
 
 def example_run():
@@ -135,5 +141,8 @@ def export_demo(output):
     data = trace(model, test, cuts, specimen=True)
     write_json(destination / "examples.json", data)
     (destination / "examples.js").write_text(browser_data(data), encoding="utf-8")
+    specimens = destination / "specimens"
+    specimens.mkdir(exist_ok=True)
+    (specimens / "examples.js").write_text(specimen_browser_data(), encoding="utf-8")
     (destination / ".nojekyll").touch()
     return {"directory": str(destination)}

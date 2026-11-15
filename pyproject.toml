@@ -33,4 +33,4 @@ addopts = "-ra"
 markers = ["vision: optional image encoder and registration tests"]
 
 [tool.setuptools.package-data]
-nrsw = ["web/*.html", "web/*.css", "web/*.js"]
+nrsw = ["web/*.html", "web/*.css", "web/*.js", "web/specimens/*.json", "web/specimens/*.png", "web/specimens/*.jpg", "web/specimens/*.jpeg"]

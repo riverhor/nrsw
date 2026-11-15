@@ -8,17 +8,20 @@
   <title>NRSW · Document forgery detection</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="./examples.js" defer></script>
+  <script src="./specimens/examples.js" defer></script>
+  <script src="./locale.js" defer></script>
   <script src="./demo.js" defer></script>
 </head>
 <body>
-  <a class="skip-link" href="#inspect">Skip to the demo</a>
+  <a class="skip-link" href="#inspect" data-translate>Skip to the demo</a>
   <header class="site-header">
     <div class="shell header-content">
       <a class="brand" href="#top" aria-label="NRSW home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>NRSW</a>
       <nav aria-label="Main navigation">
-        <a href="#inspect">Demo</a>
-        <a href="#method">Method</a>
-        <a href="#use">Use NRSW</a>
+        <a href="#inspect" data-translate>Demo</a>
+        <a href="#method" data-translate>Method</a>
+        <a href="#use" data-translate>Use NRSW</a>
+        <a id="language-switch" href="?lang=zh-CN" lang="zh-CN">简体中文</a>
       </nav>
     </div>
   </header>
@@ -26,13 +29,13 @@
     <section class="intro" aria-labelledby="title">
       <div>
         <p class="eyebrow">Normal-Referenced Spectral Weighting</p>
-        <h1 id="title">Document forgery detection</h1>
-        <p>Train a detector for a registered layout with a few labeled forgeries. See which fields carry local evidence and how a threshold calibrated on genuine documents affects the decision.</p>
+        <h1 id="title" data-translate>Document forgery detection</h1>
+        <p data-translate>Train a detector for a registered layout with a few labeled forgeries. See which fields carry local evidence and how a threshold calibrated on genuine documents affects the decision.</p>
       </div>
       <dl class="fit-summary" id="fit-summary" hidden>
-        <dt>Genuine training</dt><dd id="genuine-count"></dd>
-        <dt>Forged training</dt><dd id="forged-count"></dd>
-        <dt>Genuine calibration</dt><dd id="calibration-count"></dd>
+        <dt data-translate>Genuine training</dt><dd id="genuine-count"></dd>
+        <dt data-translate>Forged training</dt><dd id="forged-count"></dd>
+        <dt data-translate>Genuine calibration</dt><dd id="calibration-count"></dd>
       </dl>
     </section>
 
@@ -40,75 +43,80 @@
       <div class="workbench-heading">
         <div>
           <p id="source-label" class="eyebrow">Example data</p>
-          <h2 id="demo-title">Inspect a prediction</h2>
+          <h2 id="demo-title" data-translate>Inspect a prediction</h2>
         </div>
         <div class="trace-controls">
-          <label class="file-label"><span>Open prediction file</span><input type="file" id="trace-file" accept=".json,application/json"></label>
-          <button type="button" id="restore" class="quiet-button" hidden>Restore examples</button>
+          <label class="file-label"><span data-translate>Open prediction file</span><input type="file" id="trace-file" accept=".json,application/json"></label>
+          <button type="button" id="restore" class="quiet-button" hidden data-translate>Restore examples</button>
         </div>
       </div>
-      <p id="status" class="status" role="status">Loading examples…</p>
+      <p id="status" class="status" role="status" data-translate>Loading examples…</p>
       <noscript><p class="status">Enable JavaScript to explore the example predictions.</p></noscript>
       <div id="inspector" hidden>
+        <p id="dataset-scope" class="dataset-scope"></p>
         <div class="control-strip">
-          <div class="select-control"><label for="example-select">Document</label><select id="example-select"></select></div>
-          <div class="select-control"><label for="threshold-select">Target false-positive rate</label><select id="threshold-select"></select></div>
+          <div class="select-control" id="source-control" hidden><label for="source-select" data-translate>Data</label><select id="source-select"></select></div>
+          <div class="select-control"><label for="example-select" data-translate>Document</label><select id="example-select"></select></div>
+          <div class="select-control"><label for="threshold-select" data-translate>Target false-positive rate</label><select id="threshold-select"></select></div>
+        </div>
+        <div class="decision" aria-live="polite">
+          <div class="decision-main">
+            <p class="eyebrow" data-translate>Calibrated decision</p>
+            <output id="decision-value"></output>
+          </div>
+          <dl class="decision-values">
+            <div><dt data-translate>Forgery score</dt><dd id="score-value"></dd></div>
+            <div><dt data-translate>Threshold</dt><dd id="threshold-value"></dd></div>
+          </dl>
+          <p class="decision-note" data-translate>The threshold comes from separate genuine documents. A score above it flags the document for review.</p>
+          <button type="button" id="download" class="quiet-button" data-translate>Download this prediction</button>
         </div>
         <div class="inspection-grid">
           <article class="document-panel" aria-labelledby="documents-title">
-            <div class="panel-heading"><h3 id="documents-title">Documents</h3><span id="image-scope">Illustrations</span></div>
+            <div class="panel-heading"><h3 id="documents-title" data-translate>Documents</h3><span id="image-scope">Illustrations</span></div>
             <div id="illustrations" class="document-pair">
               <figure>
                 <div class="permit" id="reference-card" aria-label="Fictional reference card"></div>
-                <figcaption>Genuine reference</figcaption>
+                <figcaption data-translate>Genuine reference</figcaption>
               </figure>
               <figure>
                 <div class="permit candidate" id="candidate-card" aria-label="Fictional example card"></div>
                 <figcaption id="candidate-caption">Selected example</figcaption>
               </figure>
             </div>
+            <div id="specimen-documents" class="specimen-documents" hidden></div>
+            <dl id="specimen-facts" class="specimen-facts" hidden></dl>
             <div class="selected-document" id="custom-document" hidden></div>
             <p id="example-note" class="example-note"></p>
+            <p id="document-credit" class="document-credit" hidden></p>
           </article>
           <article class="evidence-panel" aria-labelledby="field-title">
-            <div class="panel-heading"><h3 id="field-title">Field evidence</h3></div>
+            <div class="panel-heading"><h3 id="field-title" data-translate>Field evidence</h3></div>
             <table aria-describedby="evidence-help">
-              <thead><tr><th scope="col">Field</th><th scope="col">Weight</th><th scope="col">Energy</th></tr></thead>
+              <thead><tr><th scope="col" data-translate>Field</th><th scope="col" data-translate>Weight</th><th scope="col" data-translate>Energy</th></tr></thead>
               <tbody id="field-rows"></tbody>
             </table>
             <p id="evidence-help" class="muted">Energy measures how unusual a field looks along the learned directions. Its weight determines its share of the combined local features. Select a field to locate it on the cards.</p>
           </article>
         </div>
-        <div class="decision" aria-live="polite">
-          <div class="decision-main">
-            <p class="eyebrow">Calibrated decision</p>
-            <output id="decision-value"></output>
-          </div>
-          <dl class="decision-values">
-            <div><dt>Model score</dt><dd id="score-value"></dd></div>
-            <div><dt>Threshold</dt><dd id="threshold-value"></dd></div>
-          </dl>
-          <p class="decision-note">The threshold is set using separate genuine documents. A score above it flags the document for review.</p>
-          <button type="button" id="download" class="quiet-button">Download this prediction</button>
-        </div>
       </div>
     </section>
 
     <section id="method" class="explain" aria-labelledby="method-title">
-      <h2 id="method-title">How NRSW works</h2>
+      <h2 id="method-title" data-translate>How NRSW works</h2>
       <ol class="method-steps">
-        <li><h3>Register the layout</h3><p>Mark the field locations on a genuine layout reference. Align documents to that layout and measure how its fields vary across genuine documents.</p></li>
-        <li><h3>Learn local evidence</h3><p>Mark one or two fields that may have been edited in each forged training document. NRSW compares them with the same fields on genuine documents to learn which changes are associated with forgery.</p></li>
-        <li><h3>Score and calibrate</h3><p>The classifier uses signed field features, an evidence-weighted summary, peak evidence strength, and global features. A separate genuine set determines the score threshold.</p></li>
+        <li><h3 data-translate>Register the layout</h3><p data-translate>Mark the field locations on a genuine layout reference. Align documents to that layout and measure how its fields vary across genuine documents.</p></li>
+        <li><h3 data-translate>Learn local evidence</h3><p data-translate>Mark one or two fields that may have been edited in each forged training document. NRSW compares them with the same fields on genuine documents to learn which changes are associated with forgery.</p></li>
+        <li><h3 data-translate>Score and calibrate</h3><p data-translate>The classifier uses signed field features, an evidence-weighted summary, peak evidence strength, and global features. A separate genuine set determines the score threshold.</p></li>
       </ol>
     </section>
 
     <section id="use" class="use" aria-labelledby="use-title">
-      <div><h2 id="use-title">Try your own layout</h2><p>Install the Python package and follow the project README to extract features, fit a detector, and calibrate it. Open a prediction file exported by NRSW to inspect your model’s decisions. The file stays in your browser.</p></div>
+      <div><h2 id="use-title" data-translate>Try your own layout</h2><p data-translate>Train a detector and score new images on your computer. Open an exported prediction file here to inspect its scores. The file stays in your browser.</p><p><a href="https://github.com/riverhor/nrsw/blob/main/docs/training.md" data-translate>Training guide</a></p></div>
       <pre><code>python -m pip install .
 nrsw serve</code></pre>
     </section>
   </main>
-  <footer class="shell site-footer"><span>NRSW · Normal-Referenced Spectral Weighting</span><a href="#top">Back to top ↑</a></footer>
+  <footer class="shell site-footer"><span>NRSW · Normal-Referenced Spectral Weighting</span><a href="#top" data-translate>Back to top ↑</a></footer>
 </body>
 </html>
