@@ -1,7 +1,9 @@
 """Small synthetic documents for trying the detector without model weights."""
 from pathlib import Path
+from html import escape
 import json
 import shutil
+from urllib.parse import urlsplit
 
 import numpy as np
 
@@ -9,6 +11,7 @@ from .api import Calibration, _select, calibrate, evaluate, fit, save_model, sco
 from .schema import FeatureDataset, save_feature_dataset
 
 WEB = Path(__file__).with_name("web")
+UPLOAD_META = '<meta name="nrsw-prediction-api" content="">'
 FIELDS = ("name", "number", "valid_until")
 SAMPLE_NAMES = {
     "genuine": ("Unaltered card", "All three fields come from the same synthetic reference layout.", None),
@@ -134,10 +137,27 @@ def run_demo(output):
     return {"directory": str(output), "evaluation": report}
 
 
-def export_demo(output):
+def demo_html(html, upload_api):
+    """Attach an HTTPS inference service to the static demo."""
+    if upload_api is None:
+        return html
+    if upload_api != ".":
+        url = urlsplit(upload_api)
+        if (url.scheme != "https" or not url.hostname or url.username is not None
+                or url.password is not None or url.query or url.fragment):
+            raise ValueError("The upload service URL must be an HTTPS base URL")
+    if UPLOAD_META not in html:
+        raise ValueError("Demo upload configuration is missing")
+    return html.replace(UPLOAD_META, f'<meta name="nrsw-prediction-api" content="{escape(upload_api, quote=True)}">', 1)
+
+
+def export_demo(output, *, upload_api=None):
     _, _, test, model, cuts = example_run()
     destination = Path(output)
+    page = demo_html((WEB / "index.html").read_text(encoding="utf-8"), upload_api)
     shutil.copytree(WEB, destination, ignore=shutil.ignore_patterns("test*", "__pycache__"))
+    if upload_api is not None:
+        (destination / "index.html").write_text(page, encoding="utf-8")
     data = trace(model, test, cuts, specimen=True)
     write_json(destination / "examples.json", data)
     (destination / "examples.js").write_text(browser_data(data), encoding="utf-8")

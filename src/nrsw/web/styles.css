@@ -104,6 +104,16 @@ h3 { font-size: 1rem; }
 .fit-summary dd { color: var(--ink); font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
 .workbench { border: 1px solid var(--line); border-radius: 14px; background: var(--white); overflow: hidden; box-shadow: 0 10px 36px #1639510a; }
+.upload { display: grid; gap: 0.45rem; padding: 1rem clamp(1rem, 2.4vw, 1.8rem); margin-bottom: 1rem; }
+.upload h2 { margin-bottom: 0.3rem; }
+.upload p, .upload a, .upload-controls { color: var(--muted); font-size: 0.86rem; }
+.upload a { width: fit-content; color: var(--accent-dark); }
+.upload-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 0.45rem 0.75rem; margin: 0.18rem 0 0.4rem; }
+#upload-name { max-width: min(100%, 26rem); overflow-wrap: anywhere; }
+.upload-submit { min-height: 2.25rem; padding: 0.25rem 0.7rem; border: 1px solid var(--accent-dark); border-radius: 6px; background: var(--accent-dark); color: var(--white); font-size: 0.82rem; font-weight: 650; }
+.upload-submit:hover:not(:disabled) { background: var(--accent); }
+.upload-submit:disabled { background: #e0e9ed; border-color: #b7cbd5; color: var(--muted); cursor: default; }
+.upload .upload-status.error { color: var(--review); }
 .workbench-heading, .control-strip, .inspection-grid, .decision { padding-inline: clamp(1rem, 2.4vw, 1.8rem); }
 .workbench-heading {
   display: flex;
@@ -115,6 +125,7 @@ h3 { font-size: 1rem; }
 }
 .workbench-heading h2 { margin-top: 0.12rem; }
 .trace-controls { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
+.trace-controls a { font-size: 0.82rem; font-weight: 650; }
 .file-label, .quiet-button {
   position: relative;
   display: inline-flex;

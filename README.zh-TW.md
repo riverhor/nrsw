@@ -17,6 +17,8 @@ nrsw serve
 
 在瀏覽器開啟 [localhost:8000](http://127.0.0.1:8000)。也可用 `nrsw demo --output runs/example` 在本機用合成特徵訓練一個小型範例模型。
 
+若要從瀏覽器選取自己的影像並即時偵測，請依[上傳指南](docs/upload.md)在本機載入已登錄的偵測器。
+
 ## 復現論文結果
 
 依照[原始影像復現指南](docs/raw-reproduction.md)下載資料、擷取特徵、訓練及評估偵測器。[復現指南](docs/reproduction.md)列出各項實驗所需的檔案，以及如何用 CPU 和已保存的預測分數核對論文數字。

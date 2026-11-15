@@ -149,6 +149,11 @@ def _output(result, path):
 def _serve(args):
     from .server import serve
     from .demo import example_run
+    from .registry import LayoutRegistry
+    from .vision import encoder_options
+
+    if args.registry is None and (args.layout_id is not None or args.allow_origin is not None):
+        raise ValueError("pass --registry to enable image uploads")
 
     paths = (args.model, args.features, args.calibration)
     if any(paths):
@@ -158,7 +163,16 @@ def _serve(args):
     else:
         _, _, test, model, cuts = example_run()
         data = trace(model, test, cuts, specimen=True)
-    serve(data, args.port)
+    if args.registry is None:
+        serve(data, args.port)
+        return
+    with LayoutRegistry.from_file(args.registry, **encoder_options(args)) as registry:
+        layout_id = args.layout_id
+        if layout_id is None:
+            if len(registry.layout_ids) != 1:
+                raise ValueError("choose one upload layout with --layout-id")
+            layout_id = registry.layout_ids[0]
+        serve(data, args.port, registry=registry, layout_id=layout_id, allowed_origin=args.allow_origin)
 
 
 def build_parser():
@@ -240,17 +254,24 @@ def build_parser():
         if name == "predict":
             command.add_argument("--trace", type=Path, help="export scores and field weights for the demo page")
 
-    for name, help_text, action in (("demo", "train and test on simulated features", run_demo),
-                                    ("export-demo", "build a static demo for a web host", export_demo)):
-        command = commands.add_parser(name, help=help_text)
-        command.add_argument("--output", type=Path, required=True)
-        command.set_defaults(handler=lambda args, action=action: action(args.output))
+    demo = commands.add_parser("demo", help="train and test on simulated features")
+    demo.add_argument("--output", type=Path, required=True)
+    demo.set_defaults(handler=lambda args: run_demo(args.output))
+
+    export = commands.add_parser("export-demo", help="build a static demo for a web host")
+    export.add_argument("--output", type=Path, required=True)
+    export.add_argument("--upload-api", help="HTTPS base URL of a deployed inference service")
+    export.set_defaults(handler=lambda args: export_demo(args.output, upload_api=args.upload_api))
 
     server = commands.add_parser("serve", help="open the demo on your machine")
     server.add_argument("--port", type=int, default=8000)
     server.add_argument("--model", type=Path)
     server.add_argument("--features", type=Path)
     server.add_argument("--calibration", type=Path)
+    server.add_argument("--registry", type=Path, help="layout registry that enables live image uploads")
+    server.add_argument("--layout-id", help="one registered layout to offer for image uploads")
+    server.add_argument("--allow-origin", help="HTTPS origin of a separate website that uses the upload API")
+    add_encoder_options(server)
     server.set_defaults(handler=_serve)
     return parser
 

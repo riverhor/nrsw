@@ -15,6 +15,14 @@ from .registration import LayoutRegistrar, MAX_ENCODED, MAX_PIXELS, rectify_map,
 from .schema import PIXEL_DIMENSION
 
 
+class InvalidImageError(ValueError):
+    """The uploaded bytes do not contain a supported image."""
+
+
+class ImageAlignmentError(ValueError):
+    """The image did not align to the registered document layout."""
+
+
 def read_manifest(path, field_order, layout_id):
     """Read JSONL, JSON array or CSV; resolve images relative to the manifest."""
     path = Path(path).resolve()
@@ -98,20 +106,32 @@ def read_manifest(path, field_order, layout_id):
     return parsed
 
 
-def decode_image(path, expected_sha256=None):
+def decode_image(path, expected_sha256=None, *, image_format=None):
     from PIL import Image, ImageOps
-    with Path(path).open("rb") as handle:
-        payload = handle.read(MAX_ENCODED + 1)
+    if isinstance(path, bytes):
+        payload = path
+        source = "uploaded image"
+    else:
+        source = path
+        with Path(path).open("rb") as handle:
+            payload = handle.read(MAX_ENCODED + 1)
     if not payload or len(payload) > MAX_ENCODED:
-        raise ValueError(f"Image must contain 1..{MAX_ENCODED} encoded bytes: {path}")
+        raise InvalidImageError(f"Image must contain 1..{MAX_ENCODED} encoded bytes: {source}")
     digest = hashlib.sha256(payload).hexdigest()
     if expected_sha256 is not None and digest != expected_sha256:
-        raise ValueError(f"Image SHA256 mismatch: {path}")
-    with Image.open(io.BytesIO(payload)) as original:
-        if original.width * original.height > MAX_PIXELS:
-            raise ValueError(f"Image exceeds {MAX_PIXELS} decoded pixels: {path}")
-        image = ImageOps.exif_transpose(original).convert("RGB")
-        image.load()
+        raise InvalidImageError(f"Image SHA256 mismatch: {source}")
+    try:
+        with Image.open(io.BytesIO(payload), formats=None if image_format is None else (image_format,)) as original:
+            if original.width * original.height > MAX_PIXELS:
+                raise InvalidImageError(f"Image exceeds {MAX_PIXELS} decoded pixels: {source}")
+            if image_format is not None and getattr(original, "n_frames", 1) != 1:
+                raise InvalidImageError("Upload a single image, without animation")
+            image = ImageOps.exif_transpose(original).convert("RGB")
+            image.load()
+    except (OSError, Image.DecompressionBombError) as error:
+        if image_format is None:
+            raise
+        raise InvalidImageError("The file could not be decoded as the declared image type") from error
     return image, digest
 
 
@@ -144,7 +164,7 @@ class ImageEncoders:
 
 
 def describe_rows(rows, registrar, encoders, extractor, *, provenance=None, progress=None,
-                  field_classifiers=False):
+                  field_classifiers=False, require_alignment=False, image_format=None):
     """Measure already validated rows using the chosen geometry and encoder pair."""
     from .schema import FeatureDataset
 
@@ -165,9 +185,16 @@ def describe_rows(rows, registrar, encoders, extractor, *, provenance=None, prog
         try:
             for index in range(start, min(count, start + batch_size)):
                 row = rows[index]
-                image, digest = decode_image(row["image"], row.get("sha256"))
+                image, digest = decode_image(row["image"], row.get("sha256"), image_format=image_format)
                 images.append(image)
-                registration = registrar.register(image, digest)
+                try:
+                    registration = registrar.register(image, digest)
+                except ValueError as error:
+                    if not require_alignment:
+                        raise
+                    raise ImageAlignmentError("The image could not be aligned to this layout") from error
+                if require_alignment and not registration.local_valid:
+                    raise ImageAlignmentError("The image could not be aligned to this layout")
                 global_mobile[index] = encoders.mobile.global_descriptor(image)
                 if field_classifiers and registration.quads:
                     gray = np.asarray(image.convert("L"))
@@ -193,6 +220,13 @@ def describe_rows(rows, registrar, encoders, extractor, *, provenance=None, prog
                     local_valid[index] = True
                 receipts.append(dict(id=row["id"], image_sha256=digest, local_valid=registration.local_valid,
                                      selected_reference=registration.reference_index, geometry=registration.diagnostics))
+                if require_alignment:
+                    boxes = {}
+                    for name, quad in registration.quads.items():
+                        left, top = quad.min(axis=0) / image.size
+                        right, bottom = quad.max(axis=0) / image.size
+                        boxes[name] = [float(left), float(top), float(right), float(bottom)]
+                    receipts[-1]["boxes"] = boxes
             global_features[start:start + len(images)] = encoders.sd.encode(images)
             row_receipts.extend(receipts)
         finally:

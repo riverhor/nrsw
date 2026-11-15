@@ -6,6 +6,9 @@ const documentSelect = byId("example-select");
 const thresholdSelect = byId("threshold-select");
 const traceFile = byId("trace-file");
 const restoreButton = byId("restore");
+const uploadForm = byId("upload-form");
+const uploadFile = byId("upload-file");
+const uploadSubmit = byId("upload-submit");
 const numberFormat = new Intl.NumberFormat(locale, { maximumSignificantDigits: 8 });
 const integerFormat = new Intl.NumberFormat(locale);
 const percentFormat = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 4 });
@@ -15,10 +18,13 @@ const fieldLabels = { name: "Name", number: "Permit number", valid_until: "Valid
 const referenceValues = { name: "Avery Rowan", number: "NB 094 381", valid_until: "18 NOV 2028" };
 const editedValues = { name: "Avery Robin", number: "NB 094 881", valid_until: "18 NOV 2030" };
 const sourceNames = { specimen: "Document images", synthetic: "Simulated features", custom: "Local model" };
+const slovakLayouts = new Set(["idspace-svk", "IDSpace_SVK_R29"]);
 const builtIn = new Map();
 
 let defaultSource;
 let trace;
+let previewUrl;
+let pendingUpload;
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -31,6 +37,11 @@ function fieldLabel(field) {
   if (trace.dataset === "synthetic" && Object.hasOwn(fieldLabels, field)) return t(fieldLabels[field]);
   if (locale === "zh-CN" && trace.field_labels_zh && Object.hasOwn(trace.field_labels_zh, field)) return trace.field_labels_zh[field];
   if (trace.field_labels && Object.hasOwn(trace.field_labels, field)) return trace.field_labels[field];
+  const specimen = builtIn.get("specimen");
+  if (specimen && slovakLayouts.has(trace.layout)) {
+    const label = (locale === "zh-CN" ? specimen.field_labels_zh : specimen.field_labels)?.[field];
+    if (label) return label;
+  }
   return field.replaceAll("_", " ");
 }
 
@@ -95,16 +106,16 @@ function validate(data) {
         ["genuine", "forged"].includes(sample.label),
         "Each document needs a bundled image and a dataset label."
       );
-      if (sample.boxes !== undefined) {
-        verify(
-          sample.boxes && typeof sample.boxes === "object" &&
-          Object.entries(sample.boxes).every(([field, box]) =>
-            data.fields.includes(field) && Array.isArray(box) && box.length === 4 &&
-            box.every((value) => Number.isFinite(value) && value >= 0 && value <= 1) &&
-            box[0] < box[2] && box[1] < box[3]),
-          "Each field outline must lie inside its document image."
-        );
-      }
+    }
+    if (sample.boxes !== undefined) {
+      verify(
+        sample.boxes && typeof sample.boxes === "object" &&
+        Object.entries(sample.boxes).every(([field, box]) =>
+          data.fields.includes(field) && Array.isArray(box) && box.length === 4 &&
+          box.every((value) => Number.isFinite(value) && value >= 0 && value <= 1) &&
+          box[0] < box[2] && box[1] < box[3]),
+        "Each field outline must lie inside its document image."
+      );
     }
   }
   verify(Array.isArray(data.thresholds), "The prediction file is missing its list of thresholds.");
@@ -152,14 +163,16 @@ function showFitSummary() {
   byId("fit-summary").hidden = !hasCount;
 }
 
-function useTrace(data, imported = false) {
+function useTrace(data, imported = false, imageUrl) {
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = imageUrl;
   trace = data;
   restoreButton.hidden = !(defaultSource && imported);
   byId("source-control").hidden = imported || builtIn.size < 2;
   if (!imported) sourceSelect.value = data.dataset;
-  byId("source-label").textContent = t(imported ? "Opened prediction file" : sourceNames[data.dataset]);
-  byId("dataset-scope").textContent = t({
-    specimen: "Choose a document image to inspect its saved NRSW prediction. To score a new image, run NRSW on your computer.",
+  byId("source-label").textContent = t(imageUrl ? "Uploaded document" : imported ? "Opened prediction file" : sourceNames[data.dataset]);
+  byId("dataset-scope").textContent = t(imageUrl ? "NRSW measured this image. Select a target false-positive rate to see its decision." : {
+    specimen: "Choose a document image to inspect its saved NRSW prediction.",
     synthetic: "These predictions use simulated features. The illustrations show the fields they represent.",
     custom: "These scores come from a locally trained detector."
   }[data.dataset]);
@@ -332,13 +345,16 @@ function showDocument() {
   const sample = currentSample();
   const synthetic = trace.dataset === "synthetic";
   const specimen = trace.dataset === "specimen";
+  const hasImage = specimen || previewUrl;
   const label = byId("image-scope");
-  label.hidden = !synthetic && !specimen;
-  label.textContent = synthetic ? t("Illustrations") : localized(trace, "layout_name") ?? t("Source images");
+  label.hidden = !synthetic && !hasImage;
+  const layoutName = slovakLayouts.has(trace.layout) ? "Slovak identity-card layout" : "Source images";
+  label.textContent = synthetic ? t("Illustrations") : localized(trace, "layout_name") ?? t(layoutName);
   byId("illustrations").hidden = !synthetic;
-  byId("specimen-documents").hidden = !specimen;
+  byId("specimen-documents").hidden = !hasImage;
+  if (!hasImage) byId("specimen-documents").replaceChildren();
   byId("specimen-facts").hidden = !specimen;
-  byId("custom-document").hidden = synthetic || specimen;
+  byId("custom-document").hidden = synthetic || hasImage;
   byId("document-credit").hidden = true;
   if (synthetic) {
     const reference = byId("reference-card");
@@ -350,6 +366,10 @@ function showDocument() {
     byId("candidate-caption").textContent = titleOf(sample);
   } else if (specimen) {
     showSpecimen(sample);
+  } else if (previewUrl) {
+    const images = byId("specimen-documents");
+    images.classList.remove("paired");
+    images.replaceChildren(specimenImage({ ...sample, image: previewUrl }, "Uploaded document"));
   } else {
     const title = element("strong", titleOf(sample));
     byId("custom-document").replaceChildren(title);
@@ -365,9 +385,9 @@ function showDocument() {
   note.textContent = (specimen ? localized(trace, "note") : localized(sample, "note")) ?? "";
   note.hidden = !note.textContent;
   const outlined = new Set(Object.keys(sample.boxes ?? {}));
-  const interactive = (field) => synthetic || (specimen && outlined.has(field));
+  const interactive = (field) => synthetic || Boolean(hasImage && outlined.has(field));
   byId("evidence-help").textContent = t("Energy measures how unusual a field looks along the learned directions. Its weight determines its share of the combined local features.") +
-    (synthetic || (specimen && outlined.size) ? ` ${t("Select an underlined field to see where it was measured.")}` : "");
+    (synthetic || (hasImage && outlined.size) ? ` ${t("Select an underlined field to see where it was measured.")}` : "");
   const weights = sample.weights ?? trace.fields.map(() => null);
   byId("field-rows").replaceChildren(...trace.fields.map((field, i) => fieldRow(field, weights[i], sample.energies?.[i] ?? null, interactive(field))));
   const largestWeight = weights.reduce((best, weight, i) => interactive(trace.fields[i]) && (weight ?? -1) > (weights[best] ?? -1) ? i : best, -1);
@@ -401,6 +421,132 @@ function downloadPrediction() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function uploadStatus(message, isError = false) {
+  const status = byId("upload-status");
+  status.textContent = t(message);
+  status.hidden = !message;
+  status.classList.toggle("error", isError);
+}
+
+function isLoopback(host) {
+  return ["localhost", "127.0.0.1", "[::1]"].includes(host);
+}
+
+function predictionApi() {
+  const configured = document.querySelector('meta[name="nrsw-prediction-api"]').content.trim();
+  if (!configured && !isLoopback(location.hostname)) return;
+  try {
+    const api = new URL(configured || ".", location.href);
+    const loopback = api.origin === location.origin && api.protocol === "http:" && isLoopback(api.hostname);
+    if ((!loopback && api.protocol !== "https:") || api.username || api.password || api.search || api.hash) return;
+    if (!api.pathname.endsWith("/")) api.pathname += "/";
+    return api;
+  } catch {
+    return;
+  }
+}
+
+function updateUploadForm() {
+  byId("upload-name").textContent = uploadFile.files[0]?.name ?? t("No image selected");
+  uploadSubmit.disabled = !uploadFile.files.length || Boolean(pendingUpload);
+  uploadForm.setAttribute("aria-busy", String(Boolean(pendingUpload)));
+}
+
+uploadFile.addEventListener("change", () => {
+  pendingUpload?.abort();
+  pendingUpload = undefined;
+  uploadStatus("");
+  updateUploadForm();
+});
+
+const uploadTypes = { "image/jpeg": "JPEG", "image/png": "PNG" };
+const uploadRequest = { credentials: "omit", redirect: "error", referrerPolicy: "no-referrer" };
+const predictionErrors = {
+  invalid_image: "The image could not be read. Choose a clear JPEG or PNG.",
+  alignment_failed: "The card could not be aligned. Use a clear, complete image of the supported layout.",
+  busy: "The detector is busy. Try again shortly.",
+  invalid_fpr: "The selected false-positive rate is unavailable.",
+  unavailable: "Live detection is temporarily unavailable.",
+  too_large: "The image exceeds the upload limit.",
+  unsupported_type: "Choose one of the supported image formats.",
+  server_error: "Detection failed. Try again shortly."
+};
+
+async function imageType(file) {
+  const bytes = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  const png = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (png.every((byte, i) => bytes[i] === byte)) return "image/png";
+  if (bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return "image/jpeg";
+  return "";
+}
+
+async function submitImage(api, status) {
+  const [file] = uploadFile.files;
+  if (!file || pendingUpload) return;
+  const controller = new AbortController();
+  pendingUpload = controller;
+  updateUploadForm();
+  uploadStatus("Measuring the image…");
+  try {
+    verify(file.size <= status.max_bytes, predictionErrors.too_large);
+    const type = await imageType(file);
+    if (pendingUpload !== controller) return;
+    verify(status.supported_types.includes(type), predictionErrors.unsupported_type);
+    const currentFpr = trace && currentCut()?.fpr;
+    const fpr = status.fprs.find((value) => value === currentFpr) ?? status.fprs[0];
+    const url = new URL("api/predict", api);
+    url.searchParams.set("fpr", fpr);
+    const response = await fetch(url, { ...uploadRequest, method: "POST", headers: { "Content-Type": type }, body: file, signal: controller.signal });
+    const data = await response.json().catch(() => null);
+    if (pendingUpload !== controller) return;
+    const message = Object.hasOwn(predictionErrors, data?.error) ? predictionErrors[data.error] : predictionErrors.server_error;
+    verify(response.ok, message);
+    verify(data?.dataset === "custom" && data.layout === status.layout && data.examples?.length === 1 &&
+      Array.isArray(data.examples[0].weights), "The server did not return a compatible prediction.");
+    const prediction = validate(data);
+    verify(prediction.thresholds.some((cut) => cut.fpr === fpr && Number.isFinite(cut.threshold)),
+      "The server did not return a compatible prediction.");
+    useTrace({ ...prediction, selected_fpr: fpr }, true, URL.createObjectURL(file.slice(0, file.size, type)));
+    uploadFile.value = "";
+    uploadStatus("Detection complete.");
+    byId("demo-title").focus();
+  } catch (error) {
+    if (pendingUpload === controller) uploadStatus(error instanceof TypeError ? "Could not reach the detection server." : error.message, true);
+  } finally {
+    if (pendingUpload === controller) {
+      pendingUpload = undefined;
+      updateUploadForm();
+    }
+  }
+}
+
+async function enableUpload() {
+  const api = predictionApi();
+  if (!api) return;
+  try {
+    const response = await fetch(new URL("api/status", api), { ...uploadRequest, cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (!response.ok) return;
+    const status = await response.json();
+    const types = status?.supported_types;
+    if (typeof status?.layout !== "string" || !Number.isInteger(status.max_bytes) || status.max_bytes <= 0 ||
+        !Array.isArray(types) || !types.length || !types.every((type) => Object.hasOwn(uploadTypes, type)) ||
+        !Array.isArray(status.fprs) || !status.fprs.length || !status.fprs.every((fpr) => Number.isFinite(fpr) && fpr > 0 && fpr < 1)) return;
+    uploadFile.accept = types.join(",");
+    const size = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(status.max_bytes / (1024 * 1024));
+    byId("upload-size").textContent = t("{formats} · up to {limit} MiB").replace("{formats}", types.map((type) => uploadTypes[type]).join(" / ")).replace("{limit}", size);
+    if (!slovakLayouts.has(status.layout)) byId("upload-layout").textContent = t("Registered layout {layout}").replace("{layout}", status.layout);
+    byId("upload-remote").hidden = isLoopback(api.hostname);
+    byId("upload-unavailable").hidden = true;
+    uploadForm.hidden = false;
+    uploadForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitImage(api, status);
+    });
+  } catch {
+    // Keep the local setup guide visible if the inference server is unavailable.
+  }
 }
 
 traceFile.addEventListener("change", async () => {
@@ -442,3 +588,4 @@ function loadExamples() {
 }
 
 loadExamples();
+enableUpload();

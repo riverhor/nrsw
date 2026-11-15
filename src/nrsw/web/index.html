@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#152c3d">
   <meta name="description" content="Explore how NRSW uses field evidence to detect forgery in a registered document layout.">
+  <meta name="nrsw-prediction-api" content="">
   <title>NRSW · Document forgery detection</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="./examples.js" defer></script>
@@ -39,13 +40,33 @@
       </dl>
     </section>
 
+    <section id="upload" class="upload workbench" aria-labelledby="upload-title">
+      <div>
+        <h2 id="upload-title" data-translate>Check your own document</h2>
+        <p id="upload-layout" data-translate>Use a clear image of the entire front of the Slovak identity card shown in this demo.</p>
+      </div>
+      <p id="upload-unavailable" data-translate>Live detection is unavailable here. Follow the local setup guide to check your own image.</p>
+      <form id="upload-form" hidden>
+        <div class="upload-controls">
+          <label class="file-label"><span data-translate>Choose image</span><input id="upload-file" type="file" accept="image/jpeg,image/png" aria-describedby="upload-size"></label>
+          <span id="upload-name" data-translate>No image selected</span>
+          <button id="upload-submit" class="upload-submit" type="submit" disabled data-translate>Run detection</button>
+        </div>
+        <p id="upload-size"></p>
+        <p id="upload-remote" hidden data-translate>Your image is sent to the inference server when you run detection.</p>
+      </form>
+      <p class="upload-status" id="upload-status" role="status" hidden></p>
+      <a id="upload-guide" href="https://github.com/riverhor/nrsw/blob/main/docs/upload.md" data-translate>Local setup guide</a>
+    </section>
+
     <section id="inspect" class="workbench" aria-labelledby="demo-title">
       <div class="workbench-heading">
         <div>
           <p id="source-label" class="eyebrow">Example data</p>
-          <h2 id="demo-title" data-translate>Inspect a prediction</h2>
+          <h2 id="demo-title" tabindex="-1" data-translate>Inspect a prediction</h2>
         </div>
         <div class="trace-controls">
+          <a href="#upload" data-translate>Check an image</a>
           <label class="file-label"><span data-translate>Open prediction file</span><input type="file" id="trace-file" accept=".json,application/json"></label>
           <button type="button" id="restore" class="quiet-button" hidden data-translate>Restore examples</button>
         </div>

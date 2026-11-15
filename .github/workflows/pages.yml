@@ -20,7 +20,14 @@ jobs:
           python-version: '3.13'
       - uses: actions/configure-pages@v5
       - run: python -m pip install .
-      - run: nrsw export-demo --output site
+      - env:
+          NRSW_UPLOAD_API: ${{ vars.NRSW_UPLOAD_API }}
+        run: |
+          if [ -n "$NRSW_UPLOAD_API" ]; then
+            nrsw export-demo --output site --upload-api "$NRSW_UPLOAD_API"
+          else
+            nrsw export-demo --output site
+          fi
       - uses: actions/upload-pages-artifact@v4
         with:
           path: site

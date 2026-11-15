@@ -21,7 +21,7 @@ def write_rows(path, rows):
             stream.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
-def packet(metadata, images, output):
+def packet(metadata, images, output, calibration_count=64):
     receipt = read(metadata / "EXPORT_RECEIPT.json")
     for name in ("layout.json", "documents.json", "contexts.json.gz"):
         with (metadata / name).open("rb") as stream:
@@ -73,7 +73,9 @@ def packet(metadata, images, output):
                     return chosen
         raise ValueError(f"Insufficient distinct groups for {role} label {label}")
 
-    rows += choose(outer["calibration_ids"], 64, 0, "calibration")
+    if not 1 <= calibration_count <= len(outer["calibration_ids"]):
+        raise ValueError(f"Calibration count must be between 1 and {len(outer['calibration_ids'])}")
+    rows += choose(outer["calibration_ids"], calibration_count, 0, "calibration")
     for label in (0, 1):
         rows += choose(outer["test_ids"], 48, label, "evaluation")
     query, = choose(outer["test_ids"], 1, 1, "inference")
@@ -101,5 +103,6 @@ if __name__ == "__main__":
     parser.add_argument("--metadata", type=Path, required=True, help="folder containing the saved IDSpace splits and layout")
     parser.add_argument("--images", type=Path, required=True, help="folder containing the extracted Slovak ID images")
     parser.add_argument("--output", type=Path, required=True, help="new tutorial input directory")
+    parser.add_argument("--calibration", type=int, default=64, help="number of independent genuine calibration images")
     args = parser.parse_args()
-    packet(args.metadata, args.images.resolve(), args.output)
+    packet(args.metadata, args.images.resolve(), args.output, args.calibration)

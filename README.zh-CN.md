@@ -17,6 +17,8 @@ nrsw serve
 
 在浏览器中打开 [localhost:8000](http://127.0.0.1:8000/?lang=zh-CN)。也可以运行 `nrsw demo --output runs/example`，用合成特征训练一个小型示例模型。
 
+要在浏览器中选择自己的图像并实时检测，请按照[上传指南](docs/upload.md)在本地加载已登记的检测器。
+
 ## 用自己的图像训练
 
 按照[训练指南](docs/training.md)标出候选篡改字段、定义版式坐标，并将训练和校准数据分到独立的来源组。以下命令使用 CUDA。请先安装[支持 CUDA 的 PyTorch 和 torchvision](https://pytorch.org/get-started/locally/)，并准备好 `data/roles.jsonl` 和 `data/layout.json`。

@@ -88,11 +88,31 @@ class LayoutRegistry:
         """Tell a host whether it should send this layout to NRSW."""
         return isinstance(layout_id, str) and layout_id in self._routes
 
-    def predict_image(self, layout_id, image_path, *, fpr="0.01", identifier=None, group=None):
-        """Score one unlabelled image using the named layout's saved cut."""
+    def available_fprs(self, layout_id):
+        """Return the calibrated false-positive rate targets for one layout."""
+        route = self._route(layout_id)
+        return sorted({route.calibration.cut(cut.eta_fraction).eta for cut in route.calibration.cuts.values()
+                       if cut.available})
+
+    def _route(self, layout_id):
         if not self.supports(layout_id):
             known = ", ".join(self.layout_ids)
             raise UnknownLayoutError(f"unknown layout ID {layout_id!r}; configured IDs: {known}")
+        return self._routes[layout_id]
+
+    def _describe(self, route, row, **options):
+        if self._encoders is None:
+            self._encoders = ImageEncoders(**self._encoder_options)
+        extractor = self._encoders.contract(route.registrar, _geometry_contract(route.registrar))
+        if extractor_identity(extractor) != route.model.layout.extractor_id:
+            raise ValueError(f"layout {route.model.layout.layout_id!r} geometry or encoder settings differ from training")
+        if isinstance(route.model, FieldClassifierModel):
+            options["field_classifiers"] = True
+        return describe_rows([row], route.registrar, self._encoders, extractor, **options)
+
+    def predict_image(self, layout_id, image_path, *, fpr="0.01", identifier=None, group=None):
+        """Score one unlabelled image using the named layout's saved cut."""
+        route = self._route(layout_id)
         if any(value is not None and (not isinstance(value, str) or not value.strip())
                for value in (identifier, group)):
             raise ValueError("identifier and group must be nonempty strings when supplied")
@@ -100,7 +120,6 @@ class LayoutRegistry:
         with self._lock:
             if self._closed:
                 raise RuntimeError("layout registry is closed")
-            route = self._routes[layout_id]
             route.calibration.cut(fpr)
             image = Path(image_path).resolve()
             if not 1 <= image.stat().st_size <= MAX_ENCODED:
@@ -109,16 +128,30 @@ class LayoutRegistry:
             identifier = identifier if identifier is not None else f"query:{digest}"
             row = dict(image=image, id=identifier, group=identifier if group is None else group,
                        sha256=digest, label=-1, role="inference", candidate_fields=[], inner_fold=None)
-            if self._encoders is None:
-                self._encoders = ImageEncoders(**self._encoder_options)
-            extractor = self._encoders.contract(route.registrar, _geometry_contract(route.registrar))
-            if extractor_identity(extractor) != route.model.layout.extractor_id:
-                raise ValueError(f"layout {layout_id!r} geometry or encoder settings differ from training")
-            if isinstance(route.model, FieldClassifierModel):
-                dataset = describe_rows([row], route.registrar, self._encoders, extractor, field_classifiers=True)
-            else:
-                dataset = describe_rows([row], route.registrar, self._encoders, extractor)
+            dataset = self._describe(route, row)
             return predict(route.model, dataset, route.calibration, fpr)
+
+    def explain_upload(self, layout_id, image, *, image_format, fpr="0.01"):
+        """Score an in-memory JPEG or PNG and explain its registered fields."""
+        from .demo import trace
+
+        if not isinstance(image, bytes) or image_format not in ("JPEG", "PNG"):
+            raise ValueError("provide encoded JPEG or PNG bytes")
+        route = self._route(layout_id)
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("layout registry is closed")
+            selected = next((cut.eta_fraction for cut in route.calibration.cuts.values() if cut.eta == fpr), fpr)
+            cut = route.calibration.cut(selected)
+            row = dict(image=image, id="upload", group="upload", label=-1, role="inference",
+                       candidate_fields=[], inner_fold=None)
+            dataset = self._describe(route, row, require_alignment=True, image_format=image_format)
+            result = trace(route.model, dataset, route.calibration)
+            result["selected_fpr"] = cut.eta
+            example = result["examples"][0]
+            example["boxes"] = dataset.metadata["row_receipts"][0]["boxes"]
+            example["flagged"] = example["score"] > cut.threshold
+            return result
 
     def close(self):
         """Release the encoder pair and prevent further predictions."""

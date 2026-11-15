@@ -17,6 +17,8 @@ nrsw serve
 
 Open [localhost:8000](http://127.0.0.1:8000). You can also train a small example model on simulated features with `nrsw demo --output runs/example`.
 
+To score your own image directly from the browser, [start the demo with a registered detector](docs/upload.md).
+
 ## Reproduce the paper
 
 The [raw-image guide](docs/raw-reproduction.md) shows how to download the datasets, extract features, train the detectors and evaluate them. The [reproduction guide](docs/reproduction.md) lists the files for each experiment and shows how to check the reported numbers on a CPU using saved predictions.
