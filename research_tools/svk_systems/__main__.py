@@ -1,4 +1,4 @@
-"""Reproduce matched R62 SVK systems and stage the added publisher-image cohort."""
+"""Compare detectors on the original and expanded sets of Slovak ID images."""
 
 import argparse
 from pathlib import Path
@@ -12,17 +12,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--added-metadata", type=Path, default=Path(__file__).with_name("ADDED_SVK_METADATA.json.gz"))
     action = parser.add_subparsers(dest="action", required=True)
-    stage = action.add_parser("stage-added", help="extract all 12,116 rows from the official tarballs")
+    stage = action.add_parser("stage-added", help="prepare the 12,116 additional images from the published archives")
     stage.add_argument("--archives", nargs=2, type=Path, required=True)
     stage.add_argument("--output", type=Path, required=True)
-    measure = action.add_parser("measure-added-segment", help="extract one bounded MobileNet or SD segment")
+    measure = action.add_parser("measure-added-segment", help="extract MobileNet or Stable Diffusion features for one segment")
     measure.add_argument("--r5-runtime", type=Path, required=True)
     measure.add_argument("--images", type=Path, required=True)
     measure.add_argument("--measurements", type=Path, required=True)
     measure.add_argument("--encoder", choices=("mobile", "sd"), required=True)
     measure.add_argument("--weights", type=Path, required=True)
     measure.add_argument("--segment", type=int, required=True)
-    refit = action.add_parser("fit-shared-encoders", help="refit original NRSW/global-only/shared-core heads")
+    refit = action.add_parser("fit-shared-encoders", help="fit NRSW and the classifiers using the same encoders")
     refit.add_argument("--r5-runtime", type=Path, required=True)
     refit.add_argument("--original-measurements", type=Path, required=True)
     refit.add_argument("--added-measurements", type=Path)
@@ -39,7 +39,7 @@ def main():
         branch.add_argument("--context")
         if method == "flid":
             branch.add_argument("--flid-source", type=Path, required=True)
-    rates = action.add_parser("evaluate", help="recompute matched population points and paired intervals")
+    rates = action.add_parser("evaluate", help="compute error rates and paired intervals for both test sets")
     rates.add_argument("--r5-runtime", type=Path, required=True)
     rates.add_argument("--runs", type=Path, nargs="+", required=True)
     rates.add_argument("--output", type=Path, required=True)

@@ -1,4 +1,4 @@
-"""Refit the five R62 CrossVerify full-layout classifiers from the publisher images."""
+"""Train the five detector comparisons on both CrossVerify layouts."""
 
 import argparse
 import gzip
@@ -148,14 +148,14 @@ def execute(args, design):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--r62',type=Path,required=True)
+    parser.add_argument('--submission', '--r62', dest='r62', metavar='ZIP', type=Path, required=True)
     parser.add_argument('--work',type=Path,required=True)
     parser.add_argument('--images',type=Path,help='Existing CrossVerify publisher ZIP or extracted tree')
     parser.add_argument('--sd-snapshot',type=Path,help='Existing pinned Stable Diffusion snapshot')
-    parser.add_argument('--r5',type=Path,help='Existing R5 runtime root')
+    parser.add_argument('--r5',metavar='DIR',type=Path,help='Existing unpacked reproduction directory')
     actions = parser.add_mutually_exclusive_group()
     actions.add_argument('--prepare-only',action='store_true',help='Authenticate all 3,880 selected images and pinned assets with no fit')
-    actions.add_argument('--check-archived',type=Path,metavar='JSON',help='Recompute five-method metrics from the original R62 score packets')
+    actions.add_argument('--check-archived',type=Path,metavar='JSON',help='Recompute results for all five methods from saved scores')
     actions.add_argument('--worker',nargs=3,help=argparse.SUPPRESS)
     args = parser.parse_args()
     design = read_design()

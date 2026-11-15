@@ -1,52 +1,35 @@
-# IDSpace SVK common-JPEG refit
+# JPEG recompression experiments
 
-This workflow reruns the five common-JPEG refit arms reported in R62 from the released IDSpace SVK images. It applies baseline JPEG quality 85 with 4:2:0 subsampling to the decoded RGB images, using the original registered pixel maps and the original split and field-tag assignments. It re-extracts both encoders, estimates the new alignment against the fixed historical genuine reference, and fits the five methods on the transformed training features. All CAL500 thresholds are saved before TEST is scored.
+The study applies JPEG quality 85 and 4:2:0 chroma subsampling to the same 16,260 decoded Slovak IDSpace images for every method. The original document splits, field locations and annotations are reused. The decoded source images retain effects of their original encoding. The added JPEG step gives them common output settings.
 
-## Inputs
+Follow the [image-based setup](../../docs/raw-reproduction.md#setup) from the repository root. Run the original-image experiment first to download the images and weights and prepare the data needed for the paired comparison. For a single command that runs the JPEG refit, see the [IDSpace instructions](../../docs/raw-reproduction.md#slovak-idspace). The commands below let you run the steps separately. The JPEG settings were verified with Pillow 12.2.0, libjpeg API 8.0 and libjpeg-turbo 3.1.4.1.
 
-Use the authenticated R62 submission ZIP and its nested R5 portable reproduction companion. The [main reproduction guide](../../docs/reproduction.md) gives the archive hashes, dataset revision, official weight sources, and parity environment. Follow the extracted R5 README for dependency installation. The common-JPEG route uses Pillow 12.2.0, libjpeg API 8.0, and libjpeg-turbo 3.1.4.1. Native encoder execution uses the R5 CUDA environment. Only the six frozen R5 metadata files are needed in addition to the package and its release manifest. No original fitted detector parameters, features or score packets are needed for the refit.
+## Refit after JPEG recompression
 
-From the checkout, first extract the R5 runtime from the original R62 ZIP using the public package command.
-
-```console
-python -m nrsw.reproduce /path/NRSW_R62_submission_package.zip --extract-r5 /path/NRSW_R29_portable_reproduction_r5.zip
-python -m zipfile -e /path/NRSW_R29_portable_reproduction_r5.zip /path/r5-runtime
-```
-
-## Run
-
-Run these commands from the root of the checkout. Use a new working directory for `--run`. The command verifies the R5 runtime manifest and the files it binds before reading the protected role assignments.
+The refit extracts Stable Diffusion and MobileNet features from the recompressed images, fits five detectors and sets new thresholds using 500 genuine calibration images per fit.
 
 ```console
-python -m research_tools.jpeg --r5-runtime /path/r5-runtime --run /path/jpeg-run plan
-python -m research_tools.jpeg --r5-runtime /path/r5-runtime --run /path/jpeg-run stage --archives /path/SVK_template.tar.gz /path/SVK_scan.tar.gz
-python -m research_tools.jpeg --r5-runtime /path/r5-runtime --run /path/jpeg-run check-transform --images /path/jpeg-run/images
-python -m research_tools.jpeg --r5-runtime /path/r5-runtime --run /path/jpeg-run measure --images /path/jpeg-run/images --mobile-weights /path/mobilenet_v3_small-047dcff4.pth --sd-snapshot /path/sd15
-python -m research_tools.jpeg --r5-runtime /path/r5-runtime --run /path/jpeg-run refit
-python -m research_tools.jpeg --r5-runtime /path/r5-runtime --run /path/jpeg-run intervals
-python -m research_tools.jpeg --r5-runtime /path/r5-runtime --run /path/jpeg-run verify --submission /path/NRSW_R62_submission_package.zip
+python -m research_tools.jpeg --r5-runtime runs/paper/r5 --run runs/jpeg plan
+python -m research_tools.jpeg --r5-runtime runs/paper/r5 --run runs/jpeg stage --archives runs/paper/archives/SVK_template.tar.gz runs/paper/archives/SVK_scan.tar.gz
+python -m research_tools.jpeg --r5-runtime runs/paper/r5 --run runs/jpeg check-transform --images runs/jpeg/images
+python -m research_tools.jpeg --r5-runtime runs/paper/r5 --run runs/jpeg measure --images runs/jpeg/images --mobile-weights runs/paper/mobilenet_v3_small-047dcff4.pth --sd-snapshot runs/paper/sd15
+python -m research_tools.jpeg --r5-runtime runs/paper/r5 --run runs/jpeg refit
+python -m research_tools.jpeg --r5-runtime runs/paper/r5 --run runs/jpeg intervals --native-run runs/paper/all/refit
+python -m research_tools.jpeg --r5-runtime runs/paper/r5 --run runs/jpeg verify --submission paper.zip
 ```
 
-The image stage checks both official archives, verifies each selected image's SHA-256 and size, and writes the 16,260 images to the run directory. An existing read-only staged image tree can be supplied to `measure` if it uses the original archive member paths. Every used source JPEG is hashed again before decoding. `check-transform` is an optional model-free verification of one segment. It writes transformed JPEG and RGB raster fingerprints.
+The image stage verifies the publisher archives and selected images. You can use `--images runs/paper/all/images` to reuse the verified original image directory and skip `stage`. `check-transform` checks the JPEG transformation on a subset. Rerunning `measure` skips completed batches. Allow roughly 2½ hours for extraction and another 45 minutes for refitting and scoring on the study hardware. Image staging takes about 3.6 GB and features and scores take about 0.4 GB beyond the downloaded inputs.
 
-Extraction uses 26 MobileNet and 26 Stable Diffusion segments of at most 640 images each. A repeated measurement command verifies and skips already complete segments. It preserves incomplete segments with timestamped names and retries their work in fresh directories. Both encoders must receive identical transformed images before a paired packet can seal.
+- `refit/RESULTS.json` gives the AUROC, ROC-interpolated miss rates and observed rates at the calibrated thresholds. Run `refit --qualification` for one fit per fold. That check writes to `qualification/`.
+- `PAIRED_RESULTS.json` gives the within-JPEG method differences and pointwise 95% intervals from 5,000 paired resamples of document groups. With `--native-run`, it also compares the spectral-versus-diagonal difference before and after recompression.
+- `VERIFICATION.json` compares operating points and intervals with the reported values. A fresh run matched those values.
 
-The archived run took about 141 minutes for measurement and 45 minutes for five-arm refitting and scoring on the recorded RTX 5070 Ti and Windows CPU environment. Download and image staging add time. Allow 3.55 GB for the staged JPEG population and about 0.4 GB for compressed per-image features and score packets, in addition to the downloaded archives, checkpoints and dependencies.
+## Apply the original detectors to recompressed images
 
-## Read the result
-
-- `refit/RESULTS.json` contains AUROC, ROC-interpolated FNR at 1%, 5% and 10% FPR, and both observed rates at each method's own calibrated threshold. The `refit --qualification` option performs only one context per fold and writes under `qualification/`.
-- `PAIRED_RESULTS.json` contains the three within-JPEG method contrasts and the paired pointwise 95% intervals from 5,000 whole-component resamples. With `intervals --native-run /path/native-run`, it also measures the change in the complete spectral-versus-diagonal contrast using original-encoding refit scores generated by `research_tools/reproduce_svk_raw.py`. The native run is paired by exact context, calibration image and held image order.
-- `VERIFICATION.json` records how closely the operating points and any generated intervals match the R62 submission.
-
-## Keep the original models and cutoffs fixed
-
-With both the original-encoding R5 measurement store and the common-JPEG store sealed, rerun the fixed-model stress test separately.
+To measure sensitivity to encoding, keep the original fitted models and thresholds fixed and score the test images from both encodings. Run this after both feature sets are available.
 
 ```console
-python -m research_tools.jpeg --r5-runtime /path/r5-runtime --run /path/jpeg-run freeze --native-measurements /path/svk-native/measurements --submission /path/NRSW_R62_submission_package.zip
+python -m research_tools.jpeg --r5-runtime runs/paper/r5 --run runs/jpeg freeze --native-measurements runs/paper/all/measurements --submission paper.zip
 ```
 
-This fits and calibrates all five classifiers using original-encoding features, preserving the archived coordinate offset. It then scores the held images under both encodings using the original classifiers and cutoffs. The output under `frozen/` contains both operating points, the paired differences, decision crossings, and reference verification. Allow about an hour for original-model fitting, both TEST passes, and resampling.
-
-An extra shared JPEG encode uses common output settings. The released RGB rasters already reflect each image's previous encoding and formation.
+The results under `frozen/` report observed error rates, AUROC, paired changes and the fraction of decisions that crossed the original cutoff. The fresh run reproduced the reported rates, paired intervals and decision changes. Allow about an hour for refitting the original models, scoring both test sets and resampling.

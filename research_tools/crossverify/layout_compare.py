@@ -1,4 +1,4 @@
-"""Compare full-layout fresh predictions with the five released R62 figure arms."""
+"""Compare the five methods on both CrossVerify layouts."""
 
 from hashlib import sha256
 from io import BytesIO
@@ -22,7 +22,7 @@ def released_scores(evidence, roster):
     nrsw = packet(evidence.read(base))
     candidate = {p: packet(evidence.read(f'field_classifier_evidence/replay/{p.upper()}.npz')) for p in ('cal','test')}
     candidate_roles = json.loads(evidence.read('field_classifier_evidence/replay/roles.json'))['contexts']
-    require(nrsw['context_ids'].tolist() == [c['id'] for c in roster], 'R62 NRSW full-layout context order')
+    require(nrsw['context_ids'].tolist() == [c['id'] for c in roster], 'The NRSW split order does not match the paper')
     c = nrsw['arms'].tolist().index('NRSW_NATIVE')
     with ZipFile(BytesIO(evidence.read('score_replay/NRSW_R39_CrossVerify_score_replay.zip'))) as nested:
         prefix = 'crossverify_score_replay/full_inputs/'
@@ -38,7 +38,7 @@ def released_scores(evidence, roster):
             flid = packet(evidence.read(f'{flid_dir}/scores/{key}.npz'))
             relative = f'resnet_scores/{key}.npz'
             raw = nested.read(prefix+relative)
-            require(sha256(raw).hexdigest() == authority[relative], 'R62 ResNet archived score hash differs')
+            require(sha256(raw).hexdigest() == authority[relative], 'Saved ResNet scores fail the checksum')
             resnet = packet(raw)
             for phase, array in candidate.items():
                 ids = [r['id'] for r in context[phase]]
@@ -108,7 +108,7 @@ def compare(r62, design, root=None):
         indices = [i for i,c in enumerate(roster) if c['family'] == family]
         contexts = [roster[i] for i in indices]
         draws = counts(family)
-        require(np.array_equal(draws,witness[order]), f'{family} bootstrap differs from R62')
+        require(np.array_equal(draws,witness[order]), f'{family} resampling draws differ from those used in the paper')
         archived = evaluate(old['cal'][indices], old['test'][indices], contexts, draws)
         rv = figure['layout_pairs'][family]
         plot_names = ('NRSW', None, 'CrossVerify_ResNet18', 'DINOv3_frozen_dense', 'FLiD_text_shared_regions')

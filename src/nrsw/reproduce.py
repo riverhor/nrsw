@@ -1,4 +1,4 @@
-"""Recompute the R62 CrossVerify headline from archived scores."""
+"""Check the paper's results using saved scores."""
 from __future__ import annotations
 
 import argparse
@@ -43,7 +43,7 @@ def _require(condition, explanation):
 
 
 class _Evidence:
-    """Read selected R62 members in memory after checking their published hashes."""
+    """Check file hashes as entries are read from the submission ZIP."""
 
     def __init__(self, archive):
         self.archive = archive
@@ -53,7 +53,7 @@ class _Evidence:
         data = self.archive.read(name)
         record = self.manifest[name]
         _require(len(data) == record["bytes"] and sha256(data).hexdigest() == record["sha256"],
-                 f"R62 member integrity check failed for {name}")
+                 f"Checksum mismatch for {name}")
         return data
 
     def json(self, name):
@@ -91,7 +91,7 @@ def _counts(generator, records, replicates):
 def _check_close(recomputed, archived, description):
     archived = np.asarray(archived)
     _require(recomputed.shape == archived.shape and np.allclose(recomputed, archived, rtol=0, atol=2e-9),
-             f"Archived R62 result differs for {description}")
+             f"The recalculated result differs from the saved result for {description}")
 
 
 def _run_crossverify(evidence):
@@ -101,21 +101,21 @@ def _run_crossverify(evidence):
     replicates = reference["bootstrap_replicates"]
     seed = reference["bootstrap_seed"]
     _require(replicates == 5000 and all(report["bootstrap_replicates"] == replicates
-             and report["bootstrap_seed"] == seed for report in reports.values()), "R62 bootstrap design mismatch")
+             and report["bootstrap_seed"] == seed for report in reports.values()), "The saved results use inconsistent bootstrap settings")
     _require(all(report["targets_fpr"] == [target / 100 for target in TARGETS]
-                 for report in reports.values()), "R62 ROC target mismatch")
+                 for report in reports.values()), "The saved results use inconsistent false-positive-rate targets")
 
     held_order = design["held_canonical_order"]
     rows_by_id = {row["id"]: row for fold in design["test_folds"].values() for row in fold}
     _require(len(held_order) == len(rows_by_id) == 284 and set(held_order) == set(rows_by_id),
-             "R62 held-record roster mismatch")
+             "The test records do not match those in the saved results")
     labels = np.array([rows_by_id[identity]["label"] for identity in held_order])
     roots = sorted({row["component"] for row in rows_by_id.values()})
     root_ids = {root: index for index, root in enumerate(roots)}
     membership = np.array([root_ids[rows_by_id[identity]["component"]] for identity in held_order])
     _require(len(roots) == 71 and np.isin(labels, (0, 1)).all() and all(
         np.all(np.bincount(membership[labels == label], minlength=len(roots)) == per_root)
-        for label, per_root in ((0, 1), (1, 3))), "R62 should have one genuine and three forgeries per record")
+        for label, per_root in ((0, 1), (1, 3))), "Each test record must have one genuine image and three forgeries")
 
     rng = np.random.Generator(np.random.PCG64(seed))
     position = {identity: index for index, identity in enumerate(held_order)}
@@ -124,22 +124,22 @@ def _run_crossverify(evidence):
     for rows in design["test_folds"].values():
         indices = np.array([position[row["id"]] for row in rows])
         root_indices, fold_membership = np.unique(membership[indices], return_inverse=True)
-        _require(not pooled_counts[0, root_indices].any(), "R62 record belongs to multiple held folds")
+        _require(not pooled_counts[0, root_indices].any(), "A test record belongs to more than one fold")
         counts = _counts(rng, len(root_indices), replicates)
         pooled_counts[:, root_indices] = counts
         folds.append((indices, labels[indices], fold_membership, counts))
-    _require(len(folds) == 6 and pooled_counts[0].all(), "R62 held-fold partition mismatch")
+    _require(len(folds) == 6 and pooled_counts[0].all(), "The six test folds must cover all records")
 
     contexts = [row["id"] for row in design["contexts"]]
     selected = [index for index, row in enumerate(design["contexts"]) if row["budget"] == BUDGET]
-    _require(len(selected) == 3, "R62 should have three fitted draws at 15 forged labels")
+    _require(len(selected) == 3, "Expected three training draws with 15 forged documents each")
     analyses = {name: {} for name in MODES}
     for method, directory, _, _ in METHODS:
         with np.load(BytesIO(evidence.read(f"{directory}/TEST_SCORES.npz")), allow_pickle=False) as packet:
             scores = packet["scores"]
             _require(packet["context_ids"].tolist() == contexts and packet["ids"].tolist() == held_order
                      and scores.shape == (len(contexts), len(held_order)) and np.isfinite(scores).all(),
-                     f"R62 score packet has incorrect rows for {method}")
+                     f"The score file has unexpected rows for {method}")
 
         pooled = np.stack([_roc_fnr(vector, labels, membership, pooled_counts) for vector in scores[selected]])
         fixed = np.zeros_like(pooled)
@@ -214,7 +214,7 @@ def _read_svk(evidence):
 def _r62_evidence(path):
     with path.open("rb") as stream:
         digest = file_digest(stream, "sha256").hexdigest()
-        _require(digest == R62_SHA256, f"Expected the R62 submission ZIP with SHA-256 {R62_SHA256}; got {digest}")
+        _require(digest == R62_SHA256, f"The submission ZIP must have SHA-256 {R62_SHA256}. Found {digest}")
         stream.seek(0)
         with ZipFile(stream) as archive:
             yield _Evidence(archive)
@@ -238,7 +238,15 @@ def _display(report):
     def rates(values):
         return " / ".join(f"{value:.2f}" for value in values)
 
-    print("Verified R62 submission ZIP. ROC false-positive-rate targets are 1%, 5%, and 10%.\n")
+    labels = {
+        "NRSW": "NRSW",
+        "CrossVerify_ResNet18": "CrossVerify ResNet-18",
+        "DINOv3_frozen_dense": "DINOv3",
+        "FLiD_text_shared_regions": "FLiD",
+        "GLOBAL_ONLY": "Whole-image features",
+        "FROZEN_SHARED_CORE": "Historical shared core",
+    }
+    print("Verified the submission ZIP. ROC false-positive-rate targets are 1%, 5%, and 10%.\n")
     cv = report["crossverify_recomputed_from_scores"]
     print("CrossVerify registry card, recomputed from archived test scores")
     print(f"{cv['held_images']} images, {cv['records']} records, {cv['forged_training_images_per_fit']} forged labels per fit, "
@@ -246,14 +254,14 @@ def _display(report):
     print(f"{'Method':28} {'Pooled FNR (%)':24} Fold-weighted FNR (%)")
     for method, pooled in cv["analyses"][MODES[0]].items():
         fixed = cv["analyses"][MODES[1]][method]
-        print(f"{method:28} {rates(pooled['fnr_percent']):24} {rates(fixed['fnr_percent'])}")
+        print(f"{labels[method]:28} {rates(pooled['fnr_percent']):24} {rates(fixed['fnr_percent'])}")
     gaps = [-gap for method in cv["analyses"][MODES[0]].values() for gap in method.get("nrsw_minus_method_pp", ())]
     print(f"NRSW pooled FNR reductions across the five comparators are {min(gaps):.2f} to {max(gaps):.2f} pp.")
     print("Both analyses match the archived rates and every paired pointwise interval.\n")
 
     svk = report["svk_archived_aggregates"]
     replayed = report.get("svk_recomputed_from_scores")
-    print("IDSpace SVK, recomputed from ordinal scores" if replayed else "IDSpace SVK, verified archived aggregates")
+    print("IDSpace SVK, recomputed from saved score ranks" if replayed else "IDSpace SVK, checked saved summary results")
     for name, label in (("original_encoding", "Original encoding"), ("common_jpeg_refit", "Common JPEG refit")):
         saved = svk[name]
         if replayed:
@@ -280,11 +288,11 @@ def _display(report):
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Replay the R62 headline results from archived scores.")
-    parser.add_argument("archive", type=Path, help="Original NRSW_R62_submission_package.zip")
-    parser.add_argument("--svk-scores", type=Path, help="Optional NRSW_R62_SVK_rank_score_replay.zip companion")
-    parser.add_argument("--json", action="store_true", help="Print structured rates and pairing intervals")
-    parser.add_argument("--extract-r5", type=Path, metavar="ZIP", help="Copy the verified R29 R5 runtime ZIP to a new file and exit")
+    parser = argparse.ArgumentParser(description="Recompute the paper's results from saved scores.")
+    parser.add_argument("archive", type=Path, help="Paper and results ZIP")
+    parser.add_argument("--svk-scores", type=Path, help="Optional IDSpace score ZIP")
+    parser.add_argument("--json", action="store_true", help="Print rates and paired intervals as JSON")
+    parser.add_argument("--extract-r5", type=Path, metavar="ZIP", help="Copy the image reproduction tools to a new ZIP and exit")
     args = parser.parse_args(argv)
     if args.extract_r5 is not None and (args.svk_scores is not None or args.json):
         parser.error("--extract-r5 is a separate operation")
@@ -294,11 +302,11 @@ def main(argv=None) -> int:
                 data = evidence.read(RAW_RUNTIME)
             with args.extract_r5.open("xb") as stream:
                 stream.write(data)
-            print(f"Copied verified R29 R5 runtime to {args.extract_r5}")
+            print(f"Copied image reproduction tools to {args.extract_r5}")
             return 0
         report = reproduce(args.archive, args.svk_scores)
     except (OSError, ValueError, BadZipFile, KeyError) as exc:
-        parser.exit(1, f"R62 reproduction failed: {exc}\n")
+        parser.exit(1, f"Could not reproduce the results: {exc}\n")
     if args.json:
         print(json.dumps(report, indent=2, allow_nan=False))
     else:

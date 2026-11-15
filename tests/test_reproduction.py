@@ -27,9 +27,9 @@ def test_svk_component_budgets_and_strict_cut_decisions():
     np.testing.assert_allclose(points[0], [[0.99, 0.95, 0.90], [0, 0.25, 0.75], [1, 0.75, 0.5]])
 
 
-def test_r62_replay_rejects_unknown_archive(tmp_path):
-    archive = tmp_path / "NRSW_R62_submission_package.zip"
+def test_reproduce_rejects_unknown_archive(tmp_path):
+    archive = tmp_path / "submission.zip"
     archive.write_bytes(b"Different package")
 
-    with pytest.raises(ValueError, match="Expected the R62 submission ZIP with SHA-256"):
+    with pytest.raises(ValueError, match="The submission ZIP must have SHA-256"):
         reproduce(archive)

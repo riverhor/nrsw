@@ -278,7 +278,7 @@ class JointModel:
 
     def transform(self, batch):
         if batch.layout != self.layout:
-            raise ValueError("layout, semantic order or frozen extractor mismatch")
+            raise ValueError("Document features must use the model's layout, semantic order of fields, and encoders")
         alpha, _, strength = self.teachers[2].project(batch)
         return assemble_joint(batch, self.delta, self.offset, alpha, strength,
                               self.strength_unit, self.local_mean)
@@ -317,7 +317,7 @@ def fit_joint(training: TrainBatch, historical_mean: np.ndarray, *, frozen_offse
     s = batch.layout
     reference = np.asarray(historical_mean)
     if reference.dtype != np.float64 or reference.shape != (s.dg + s.d,) or not np.isfinite(reference).all():
-        raise ValueError("fixed historical genuine FP64 mean, not an old offset/head, required")
+        raise ValueError("The genuine reference mean must be a 64-bit vector of the expected length")
     if not batch.local_valid[roles == "N"].all():
         raise ValueError("every fixed N reference must have complete fields; context unavailable, no subset offset")
     ni = np.flatnonzero((roles == "N") & batch.local_valid)

@@ -1,4 +1,4 @@
-"""Fit frozen R62 CrossVerify contexts, then seal CAL and TEST separately."""
+"""Fit each CrossVerify detector and save calibration scores before test scores."""
 
 import argparse
 import json

@@ -1,4 +1,4 @@
-"""Convert a completed R29 companion measurement store into an NRSW feature packet."""
+"""Convert saved IDSpace measurements to the feature format used by NRSW."""
 
 import argparse
 from pathlib import Path
@@ -9,8 +9,7 @@ from nrsw import FeatureDataset, save_feature_dataset
 
 
 def convert(companion, metadata, measurements, output):
-    # Resolve the archived modules from their source tree. Installing both
-    # distributions together would let the archived copy replace nrsw.
+    # Import the readers from their unpacked folder to keep `nrsw` from this installation.
     sys.path.insert(0, str(companion.resolve(strict=True)))
     from r29_repro.cli import context, read
     from r29_repro.measure import load_batch
@@ -62,15 +61,15 @@ def convert(companion, metadata, measurements, output):
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     save_feature_dataset(data, output)
-    print(f"Wrote {len(data)} feature rows to {output}")
+    print(f"Saved features for {len(data)} documents to {output}")
     print(f"Fit with --historical-mean {metadata / 'HISTORICAL_MEAN_FP64.npy'}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--companion", type=Path, required=True, help="R29 companion package source directory")
-    parser.add_argument("--metadata", type=Path, required=True)
-    parser.add_argument("--measurements", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--companion", type=Path, required=True, help="folder containing the unpacked reproduction tools")
+    parser.add_argument("--metadata", type=Path, required=True, help="folder containing the saved IDSpace splits and layout")
+    parser.add_argument("--measurements", type=Path, required=True, help="folder containing the saved measurements")
+    parser.add_argument("--output", type=Path, required=True, help="output feature file (.npz)")
     args = parser.parse_args()
     convert(args.companion, args.metadata, args.measurements, args.output)

@@ -34,7 +34,7 @@ def _load_mean(path):
     historical = np.load(path, allow_pickle=False) if path else None
     if historical is not None and not isinstance(historical, np.ndarray):
         historical.close()
-        raise ValueError("--historical-mean requires an NPY vector")
+        raise ValueError("--historical-mean requires a NumPy vector saved as .npy")
     return historical
 
 
@@ -168,14 +168,14 @@ def build_parser():
     parser.add_argument("--version", action="version", version=f"nrsw {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    reproduce = commands.add_parser("reproduce", help="recompute and verify results from the R62 paper artifacts")
-    reproduce.add_argument("archive", type=Path, help="R62 submission archive")
-    reproduce.add_argument("--svk-scores", type=Path, help="optional SVK rank-score replay archive")
-    reproduce.add_argument("--extract-r5", type=Path, help="copy the authenticated archived image workflow to a new ZIP")
+    reproduce = commands.add_parser("reproduce", help="recompute the paper's results from saved scores")
+    reproduce.add_argument("archive", type=Path, help="paper and results ZIP")
+    reproduce.add_argument("--svk-scores", type=Path, help="optional IDSpace score ZIP")
+    reproduce.add_argument("--extract-r5", type=Path, help="copy the image reproduction tools to a new ZIP")
     reproduce.add_argument("--json", action="store_true", help="write the verification report as JSON")
     reproduce.set_defaults(handler=_reproduce)
 
-    prepare = commands.add_parser("prepare", help="split an image manifest by document component")
+    prepare = commands.add_parser("prepare", help="split images by source-document group")
     prepare.add_argument("--input", type=Path, required=True)
     prepare.add_argument("--output", type=Path, required=True)
     for name, default in (("anchors", 50), ("bank", 225), ("support", 15), ("calibration", 500), ("seed", 2026)):
@@ -183,23 +183,23 @@ def build_parser():
     prepare.set_defaults(handler=_prepare)
     add_vision_commands(commands)
 
-    fit_images = commands.add_parser("fit-images", help="extract, fit, and calibrate a layout from a prepared image manifest")
-    fit_images.add_argument("--manifest", type=Path, required=True, help="image manifest with fitting and calibration roles")
-    fit_images.add_argument("--layout", type=Path, required=True, help="layout geometry JSON")
-    fit_images.add_argument("--output", type=Path, required=True, help="new folder for features, model, cuts and evaluation")
-    fit_images.add_argument("--historical-mean", type=Path, help="genuine global descriptor mean (.npy)")
+    fit_images = commands.add_parser("fit-images", help="train and calibrate a detector from images")
+    fit_images.add_argument("--manifest", type=Path, required=True, help="image list with training and calibration assignments")
+    fit_images.add_argument("--layout", type=Path, required=True, help="JSON file with field locations")
+    fit_images.add_argument("--output", type=Path, required=True, help="new folder for features, model, thresholds, and any evaluation results")
+    fit_images.add_argument("--historical-mean", type=Path, help="mean whole-image features from genuine documents (.npy)")
     fit_images.add_argument("--field-classifiers", action="store_true", help="fit the optional NRSW field-classifier extension")
-    fit_images.add_argument("--fpr", nargs="+", default=DEFAULT_FPRS, help="one or more nominal FPR budgets")
-    fit_images.add_argument("--delta", default="0.05", help="binomial tail tolerance")
+    fit_images.add_argument("--fpr", nargs="+", default=DEFAULT_FPRS, help="one or more target false-positive rates")
+    fit_images.add_argument("--delta", default="0.05", help="allowed probability of exceeding the target false-positive rate")
     add_encoder_options(fit_images)
     fit_images.set_defaults(handler=_fit_images)
 
-    predict_image = commands.add_parser("predict-image", help="score one image with a fitted model and calibrated cut")
+    predict_image = commands.add_parser("predict-image", help="score one image with a fitted model and calibrated threshold")
     predict_image.add_argument("--image", type=Path, required=True, help="unlabelled image")
     predict_image.add_argument("--layout", type=Path, required=True, help="layout used for training")
     predict_image.add_argument("--model", type=Path, required=True, help="model directory")
     predict_image.add_argument("--calibration", type=Path, required=True, help="calibration file (.json)")
-    predict_image.add_argument("--fpr", default="0.01", help="nominal FPR of the saved threshold")
+    predict_image.add_argument("--fpr", default="0.01", help="target false-positive rate used to select the threshold")
     predict_image.add_argument("--output", type=Path)
     add_encoder_options(predict_image)
     predict_image.set_defaults(handler=_predict_image)
@@ -209,38 +209,38 @@ def build_parser():
     route.add_argument("--layout-id", required=True, help="known layout ID")
     route.add_argument("--image", type=Path, required=True)
     route.add_argument("--id", help="optional query ID")
-    route.add_argument("--group", help="optional dependency-component ID")
-    route.add_argument("--fpr", default="0.01", help="nominal FPR of the saved threshold")
+    route.add_argument("--group", help="optional source-document group ID")
+    route.add_argument("--fpr", default="0.01", help="target false-positive rate used to select the threshold")
     route.add_argument("--output", type=Path)
     add_encoder_options(route)
     route.set_defaults(handler=_route)
 
     def model_command(name, help_text, handler):
         command = commands.add_parser(name, help=help_text)
-        command.add_argument("--features", type=Path, required=True, help="document feature packet (.npz)")
+        command.add_argument("--features", type=Path, required=True, help="document features (.npz)")
         command.add_argument("--model", type=Path, required=True, help="model directory")
         command.set_defaults(handler=handler)
         return command
 
     train = model_command("train", "fit a detector for one registered layout", _train)
-    train.add_argument("--historical-mean", type=Path, help="genuine global descriptor mean (.npy)")
+    train.add_argument("--historical-mean", type=Path, help="mean whole-image features from genuine documents (.npy)")
     train.add_argument("--field-classifiers", action="store_true", help="Fit the optional NRSW field-classifier extension")
 
-    calibration = model_command("calibrate", "select cuts using genuine calibration scores", _calibrate)
+    calibration = model_command("calibrate", "set thresholds using genuine calibration documents", _calibrate)
     calibration.add_argument("--output", type=Path, required=True, help="calibration file (.json)")
-    calibration.add_argument("--fpr", nargs="+", default=DEFAULT_FPRS, help="one or more nominal FPR budgets")
-    calibration.add_argument("--delta", default="0.05", help="binomial tail tolerance")
+    calibration.add_argument("--fpr", nargs="+", default=DEFAULT_FPRS, help="one or more target false-positive rates")
+    calibration.add_argument("--delta", default="0.05", help="allowed probability of exceeding the target false-positive rate")
 
     for name, help_text, handler in (("predict", "score new documents", _predict),
-                                     ("evaluate", "measure held-out errors at a calibrated cut", _evaluate)):
+                                     ("evaluate", "measure errors on test documents at a calibrated threshold", _evaluate)):
         command = model_command(name, help_text, handler)
         command.add_argument("--calibration", type=Path, required=name == "evaluate")
-        command.add_argument("--fpr", default="0.01", help="nominal FPR of the saved threshold")
+        command.add_argument("--fpr", default="0.01", help="target false-positive rate used to select the threshold")
         command.add_argument("--output", type=Path)
         if name == "predict":
             command.add_argument("--trace", type=Path, help="export scores and field weights for the demo page")
 
-    for name, help_text, action in (("demo", "train and evaluate on synthetic descriptors", run_demo),
+    for name, help_text, action in (("demo", "train and test on simulated features", run_demo),
                                     ("export-demo", "build a static demo for a web host", export_demo)):
         command = commands.add_parser(name, help=help_text)
         command.add_argument("--output", type=Path, required=True)

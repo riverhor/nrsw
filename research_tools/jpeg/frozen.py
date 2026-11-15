@@ -136,24 +136,24 @@ def run(root, metadata, native_measurements, submission=None, qualification=Fals
                   common_jpeg_measurements=digest(root / "MEASUREMENTS_COMPLETE.json"))
     save(output / "RESULTS.json", result)
     if submission is not None:
-        ensure(not qualification, "Full R62 references cannot verify a single-context qualification")
+        ensure(not qualification, "Choose the full run to compare with the paper")
         verify(output, result, submission)
 
 
 def verify(output, result, submission):
-    ensure(digest(submission) == SUBMISSION_SHA256, "Expected the authenticated R62 submission ZIP")
+    ensure(digest(submission) == SUBMISSION_SHA256, "The submission archive checksum does not match")
     with ZipFile(submission) as archive:
         expected = json.loads(archive.read(EVIDENCE + "frozen_aggregate.json"))
     ensure(result["methods"] == tuple(expected["methods"]), "Expected the registered five frozen methods")
     errors = {}
     for key in ("point_original", "point_common_jpeg", "delta", "delta_interval", "crossing", "crossing_interval"):
         max_error = np.abs(np.asarray(result[key]) - np.asarray(expected[key])).max()
-        ensure(max_error <= 2e-9, f"R62 fixed-model sensitivity differs at {key}: {max_error}")
+        ensure(max_error <= 2e-9, f"Fixed-model sensitivity differs from the paper at {key}: {max_error}")
         errors[key] = float(max_error)
     for encoding in ("original", "encoded"):
         key = f"AUROC/{encoding}"
         error = np.abs(np.asarray(result["AUROC"][encoding]) - np.asarray(expected["AUROC"][encoding])).max()
-        ensure(error <= 2e-9, f"R62 fixed-model sensitivity differs at {key}: {error}")
+        ensure(error <= 2e-9, f"Fixed-model sensitivity differs from the paper at {key}: {error}")
         errors[key] = float(error)
     save(output / "VERIFICATION.json", dict(status="PASS_R62_FROZEN_PARITY", maximum_absolute_errors=errors,
                                             result_sha256=digest(output / "RESULTS.json")))

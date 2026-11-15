@@ -4,5 +4,6 @@ title: "NRSW: Normal-Referenced Spectral Weighting for Few-Label Document Forger
 type: software
 version: 0.4.0
 license: MIT
+repository-code: https://github.com/riverhor/nrsw
 authors:
   - name: NRSW contributors

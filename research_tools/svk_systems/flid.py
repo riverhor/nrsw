@@ -1,4 +1,4 @@
-"""Reproduce the matched SVK FLiD text arm from the released images."""
+"""Fit and evaluate FLiD on the published Slovak ID images."""
 import ast
 from collections import Counter
 from dataclasses import dataclass

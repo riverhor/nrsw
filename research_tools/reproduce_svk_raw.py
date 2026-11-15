@@ -1,4 +1,4 @@
-"""Refit and score the R62 native IDSpace SVK panel from a sealed R5 image measurement store."""
+"""Refit and evaluate the Slovak ID detectors using verified image features."""
 
 import argparse
 from hashlib import file_digest, sha256
@@ -205,11 +205,11 @@ def verify(result, native_path, crossed_path):
 
     def compare(actual, expected, name, tolerance=2e-9):
         actual, expected = np.asarray(actual), np.asarray(expected)
-        require(actual.shape == expected.shape, f"R62 archive shape differs for {name}")
+        require(actual.shape == expected.shape, f"Saved array shape differs for {name}")
         error = float(np.max(abs(actual - expected)))
         differences[name] = error
         require(np.allclose(actual, expected, atol=tolerance, rtol=0),
-                f"R62 archive differs for {name} (maximum absolute error {error})")
+                f"Saved result differs for {name} (maximum absolute error {error})")
 
     differences = {}
     if native_path:
@@ -278,16 +278,16 @@ def verify_witness(output, result, methods):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--r5-runtime", type=Path, required=True, help="Extracted, authenticated R5 runtime")
-    p.add_argument("--measurements", type=Path, required=True, help="Sealed R5 measurement store")
+    p.add_argument("--measurements", type=Path, required=True, help="Verified image features")
     p.add_argument("--output", type=Path, required=True, help="New output directory")
-    p.add_argument("--reference-native", type=Path, help="Optional R62 complete-estimator RESULTS.json for --all")
-    p.add_argument("--reference-crossed", type=Path, help="Optional R62 crossed independent outcome audit for --all")
+    p.add_argument("--reference-native", type=Path, help="Saved complete-estimator results for --all")
+    p.add_argument("--reference-crossed", type=Path, help="Saved results for the weight and strength comparison, used with --all")
     mode = p.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--all", action="store_true", help="All 384 R62 contexts")
+    mode.add_argument("--all", action="store_true", help="All 384 fits from the paper")
     mode.add_argument("--context", action="append", help="Repeat to refit explicit context IDs")
     args = p.parse_args()
     if not args.all and (args.reference_native or args.reference_crossed):
-        p.error("Aggregate R62 references can only verify --all")
+        p.error("Use --all to compare with the paper's aggregate results")
     package = (args.r5_runtime / "package").resolve()
     if not (package / "r29_repro" / "measure.py").is_file():
         p.error("--r5-runtime must contain the extracted R5 package/ and metadata/ folders")
@@ -301,7 +301,7 @@ def main():
     keys = [item["id"] for item in data.source["contexts"]] if args.all else args.context
     require(len(keys) == len(set(keys)) and set(keys) <= data.contexts.keys(),
             "Every selected context must occur once in the measurement plan")
-    require(not args.all or len(keys) == 384, "All 384 frozen R62 contexts")
+    require(not args.all or len(keys) == 384, "Expected all 384 fits from the paper")
     contexts = {}
     for key in keys:
         fold = data.contexts[key]["context"][0]

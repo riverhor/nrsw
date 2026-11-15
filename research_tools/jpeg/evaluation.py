@@ -1,4 +1,4 @@
-"""Recompute paired intervals and compare fresh JPEG results with R62."""
+"""Compare the JPEG experiment with the paper and recompute paired intervals."""
 
 import json
 from zipfile import ZipFile
@@ -62,7 +62,7 @@ def run(root, metadata, baseline=None):
                and original_result["scope"] == "all_384_contexts"
                and original_result["methods"][:2] == list(METHODS[3:])
                and digest(original_cal) == original_result["calibration"]["sha256"],
-               "Expected the full original-encoding R62 reproduction and calibrated cutoffs")
+               "Expected all fits and calibration thresholds from the original-encoding experiment")
         original_calibration = read(original_cal)
     for fold in range(4):
         f = str(fold)
@@ -128,16 +128,16 @@ def run(root, metadata, baseline=None):
 
 
 def verify(root, submission):
-    ensure(digest(submission) == SUBMISSION_SHA256, "Expected the authenticated R62 submission ZIP")
+    ensure(digest(submission) == SUBMISSION_SHA256, "The submission archive checksum does not match")
     with ZipFile(submission) as archive:
         expected = json.loads(archive.read(EVIDENCE + "refit_aggregate.json"))
         paired = json.loads(archive.read(EVIDENCE + "paired_results.json"))
     observed = read(root / "refit" / "RESULTS.json")
     ensure(observed["status"] == "COMPLETE" and observed["methods"] == expected["methods"]
-           and observed["metric_order"] == expected["metric_order"], "Expected all full R62 arms and metrics")
+           and observed["metric_order"] == expected["metric_order"], "Expected all methods and metrics from the paper")
     delta = np.abs(np.asarray(observed["point"]) - np.asarray(expected["point"]))
-    # Match the strict point replay tolerance used by the R62 public score runner.
-    ensure(delta.max() <= 2e-9, f"R62 common-JPEG point mismatch: largest absolute error {delta.max()}")
+    # Use the same numerical tolerance as the saved-score check.
+    ensure(delta.max() <= 2e-9, f"Reported common-JPEG result differs: largest absolute error {delta.max()}")
     intervals = root / "PAIRED_RESULTS.json"
     interval_checks = {}
     if intervals.is_file():
@@ -146,13 +146,13 @@ def verify(root, submission):
                and actual["metric_order"] == paired["interval_metric_order"]
                and len(actual["contrasts"]) == len(paired["contrasts"]), "Changed paired result scope")
         for ref, obs in zip(paired["contrasts"], actual["contrasts"], strict=True):
-            ensure(ref["methods"] == obs["methods"], "Changed R62 paired comparison")
+            ensure(ref["methods"] == obs["methods"], "Paired comparison does not match the paper")
             for key in ("imposed", "native", "change"):
                 if key not in obs:
                     continue
                 error = max(np.abs(np.asarray(ref[key][field]) - np.asarray(obs[key][field])).max()
                             for field in ("point", "percentile95"))
-                ensure(error <= 2e-9, f"R62 interval mismatch for {obs['methods']} {key}: {error}")
+                ensure(error <= 2e-9, f"Reported interval differs for {obs['methods']} {key}: {error}")
                 interval_checks["/".join(obs["methods"]) + "/" + key] = float(error)
     receipt = dict(status="PASS_R62_PARITY", maximum_point_absolute_error=float(delta.max()),
                    interval_maximum_absolute_errors=interval_checks, result_sha256=digest(root / "refit" / "RESULTS.json"))

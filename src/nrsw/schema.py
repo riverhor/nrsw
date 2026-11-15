@@ -1,7 +1,7 @@
-"""Portable feature packets and explicit registered-layout contracts.
+"""Saved document features and their layout and encoder settings.
 
-NPZ archives contain numeric or Unicode arrays only; loading never enables
-pickle. Descriptors are stored as FP32, as in the archived feature pipeline.
+NPZ files contain numeric or Unicode arrays and are loaded with pickle disabled.
+Features are stored in 32-bit floating point.
 ``local_valid`` is document-level: every field must exist to use local evidence.
 """
 from __future__ import annotations
@@ -37,9 +37,9 @@ def validate_image_sha256(value: Any, field: str = "image_sha256") -> str:
 
 
 def reference_hashes(extractor: dict) -> set[str]:
-    """Read optional registered-reference image hashes from an extractor contract."""
+    """Read any image hashes recorded for the layout references."""
     if not isinstance(extractor, dict):
-        raise ValueError("extractor contract must be an object")
+        raise ValueError("encoder settings must be an object")
     if "reference_images" not in extractor:
         return set()
     references = extractor["reference_images"]
@@ -175,7 +175,7 @@ class FeatureDataset:
         if not isinstance(fields, list) or len(fields) != z.shape[1] or not all(isinstance(x, str) and x for x in fields) or len(set(fields)) != len(fields):
             raise ValueError("metadata.field_order must list every field exactly once, in descriptor order")
         if not isinstance(self.metadata.get("extractor"), dict) or not self.metadata["extractor"]:
-            raise ValueError("metadata.extractor must describe the frozen feature contract")
+            raise ValueError("metadata.extractor must describe the encoders used to extract features")
         if "schema" in self.metadata and self.metadata["schema"] != FEATURE_SCHEMA:
             raise ValueError("unsupported feature schema")
         images, references = self.image_hashes(), self.reference_image_hashes()
@@ -186,9 +186,8 @@ class FeatureDataset:
     def image_hashes(self) -> dict[str, str]:
         """Known image hashes for selected dataset ids only.
 
-        Subsets intentionally retain the original metadata. Extra receipt rows
-        are therefore valid and cannot contribute hashes for unselected ids.
-        Feature-only packets without image receipts return an empty mapping.
+        A subset keeps the original metadata, but only its selected documents
+        contribute image hashes. If no hashes were recorded, return an empty mapping.
         """
         if not isinstance(self.metadata, dict):
             raise ValueError("metadata must be an object")
@@ -251,7 +250,7 @@ def _load_feature_dataset(path: str | Path) -> FeatureDataset:
         missing = set(ARRAY_NAMES) | {"metadata_json"}
         missing -= set(packet.files)
         if missing:
-            raise ValueError(f"feature packet missing arrays: {sorted(missing)}")
+            raise ValueError(f"missing arrays in the feature file: {sorted(missing)}")
         raw = packet["metadata_json"]
         if raw.shape != () or raw.dtype.kind not in "US":
             raise ValueError("metadata_json must be one Unicode JSON scalar")
@@ -264,4 +263,4 @@ def load_feature_dataset(path: str | Path) -> FeatureDataset:
     try:
         return _load_feature_dataset(path)
     except (BadZipFile, EOFError, KeyError, TypeError, AttributeError) as exc:
-        raise ValueError(f"malformed feature packet: {exc}") from exc
+        raise ValueError(f"invalid feature file: {exc}") from exc

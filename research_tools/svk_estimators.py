@@ -1,4 +1,4 @@
-"""Refit the R62 complete estimators and crossed heads from R5 measurements."""
+"""Refit the SVK evidence estimators and compare weight and strength combinations."""
 
 from dataclasses import dataclass
 from hashlib import sha256

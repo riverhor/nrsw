@@ -1,4 +1,4 @@
-"""Measure the two CrossVerify layouts using their frozen raster and batch contracts."""
+"""Extract features on both CrossVerify layouts using the original image and batch settings."""
 
 from hashlib import sha256
 from io import BytesIO

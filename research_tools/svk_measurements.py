@@ -1,4 +1,4 @@
-"""Join an authenticated R5 feature store to the frozen SVK roles, once per run."""
+"""Match verified image features to the original SVK data splits."""
 
 import gzip
 from hashlib import sha256

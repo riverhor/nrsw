@@ -1,4 +1,4 @@
-"""Fit, calibrate and evaluate matched SVK arms on re-extracted measurements."""
+"""Fit, calibrate and evaluate methods on the same re-encoded SVK images."""
 
 from dataclasses import dataclass
 import hashlib

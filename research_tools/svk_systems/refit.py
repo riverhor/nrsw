@@ -1,4 +1,4 @@
-"""Use original R1-scaled NRSW, global-only and frozen-core heads for both SVK panels."""
+"""Evaluate NRSW, whole-image features and the historical shared core on both SVK test sets."""
 
 import numpy as np
 from threadpoolctl import threadpool_limits

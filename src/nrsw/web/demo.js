@@ -41,15 +41,15 @@ function verify(condition, message) {
 }
 
 function validate(data) {
-  verify(data && typeof data === "object", "Expected a trace JSON object.");
-  verify(data.dataset === "synthetic" || data.dataset === "custom", "The trace must identify its dataset as synthetic or custom.");
+  verify(data && typeof data === "object", "Open a prediction file exported by NRSW.");
+  verify(data.dataset === "synthetic" || data.dataset === "custom", "The prediction file must identify its dataset as synthetic or custom.");
   verify(
     Array.isArray(data.fields) && data.fields.length > 0 &&
       data.fields.every((name) => typeof name === "string" && name.trim()) &&
       new Set(data.fields).size === data.fields.length,
-    "The trace must include unique field names."
+    "Field names in the prediction file must be unique."
   );
-  verify(Array.isArray(data.examples) && data.examples.length > 0, "The trace contains no document predictions.");
+  verify(Array.isArray(data.examples) && data.examples.length > 0, "The file contains no document predictions.");
   const ids = new Set();
   for (const sample of data.examples) {
     verify(sample && typeof sample.id === "string" && sample.id.trim() && !ids.has(sample.id), "Each prediction needs a unique document ID.");
@@ -58,7 +58,7 @@ function validate(data) {
     for (const key of ["weights", "energies"]) {
       const values = sample[key];
       if (values === null) continue;
-      verify(Array.isArray(values) && values.length === data.fields.length, "The trace needs one weight and energy per field.");
+      verify(Array.isArray(values) && values.length === data.fields.length, "Each field needs one weight and one energy value.");
       verify(
         values.every((value) => value === null ||
           (Number.isFinite(value) && value >= 0 && (key !== "weights" || value <= 1 + 1e-9))),
@@ -68,13 +68,13 @@ function validate(data) {
     verify(
       sample.edited_fields === undefined ||
         (Array.isArray(sample.edited_fields) && sample.edited_fields.every((field) => data.fields.includes(field))),
-      "The trace names an edited field outside the layout."
+      "An edited field named in the file does not belong to this layout."
     );
   }
-  verify(Array.isArray(data.thresholds), "The trace must include a thresholds array.");
+  verify(Array.isArray(data.thresholds), "The prediction file is missing its list of thresholds.");
   const budgets = new Set();
   for (const cut of data.thresholds) {
-    verify(cut && Number.isFinite(cut.fpr) && cut.fpr > 0 && cut.fpr < 1 && !budgets.has(cut.fpr), "Each threshold needs a unique false-positive budget between 0 and 1.");
+    verify(cut && Number.isFinite(cut.fpr) && cut.fpr > 0 && cut.fpr < 1 && !budgets.has(cut.fpr), "Each threshold needs a different target false-positive rate between 0 and 1.");
     verify(cut.threshold === null || Number.isFinite(cut.threshold), "Each threshold must be a finite score or null.");
     budgets.add(cut.fpr);
   }
@@ -230,9 +230,9 @@ function showDocument() {
   }
 
   const note = typeof sample.note === "string" ? sample.note : "";
-  const sourceNote = synthetic ? "The illustrations show fields represented by the synthetic features." : "";
+  const sourceNote = synthetic ? "The cards illustrate the fields used to simulate these predictions." : "";
   byId("example-note").textContent = [note, sourceNote].filter(Boolean).join(" ");
-  byId("evidence-help").textContent = "Energy measures a field’s departure along learned directions. The weight is its share of local pooling." +
+  byId("evidence-help").textContent = "Energy measures how unusual a field looks along the learned directions. Its weight determines its share of the combined local features." +
     (synthetic ? " Select a field to locate it on the cards." : "");
   const weights = sample.weights ?? trace.fields.map(() => null);
   byId("field-rows").replaceChildren(...trace.fields.map((field, i) => fieldRow(field, weights[i], sample.energies?.[i] ?? null)));
@@ -273,7 +273,7 @@ traceFile.addEventListener("change", async () => {
   const [file] = traceFile.files;
   if (!file) return;
   try {
-    verify(file.size <= 10 * 1024 * 1024, "Open a trace JSON file smaller than 10 MB.");
+    verify(file.size <= 10 * 1024 * 1024, "Open a prediction file no larger than 10 MB.");
     useTrace(validate(JSON.parse(await file.text())), true);
   } catch (error) {
     const message = error instanceof SyntaxError ? "The file is not valid JSON." : error.message;
@@ -293,7 +293,7 @@ function loadExamples() {
     if (usingImport) restoreButton.hidden = false;
     else useTrace(examples);
   } catch {
-    if (!usingImport) showStatus("Could not load examples. Open a trace JSON or start the demo with nrsw serve.", true);
+    if (!usingImport) showStatus("Could not load examples. Open a prediction file or start the demo with nrsw serve.", true);
   }
 }
 

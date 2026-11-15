@@ -1,4 +1,4 @@
-"""Run the b15 CrossVerify reproduction from authenticated images to paired ROC estimates."""
+"""Train and compare CrossVerify detectors from the published images."""
 
 import argparse
 from importlib.metadata import version
@@ -19,13 +19,14 @@ def child(script, *options):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ('r62', 'images', 'r5-runtime', 'sd-snapshot', 'mobile-weights', 'dino-weights',
+    parser.add_argument('--submission', '--r62', dest='r62', metavar='ZIP', type=Path, required=True)
+    for name in ('images', 'r5-runtime', 'sd-snapshot', 'mobile-weights', 'dino-weights',
                  'resnet-weights', 'flid-source', 'historical-mean', 'shared-parent', 'output'):
         parser.add_argument('--' + name, type=Path, required=name != 'shared-parent')
     parser.add_argument('--images-layout', choices=('publisher', 'census'), default='publisher')
     parser.add_argument('--all-budgets', action='store_true')
     args = parser.parse_args()
-    require(digest(args.r62) == R62_SHA256, 'Original R62 submission ZIP differs')
+    require(digest(args.r62) == R62_SHA256, 'The submission archive checksum does not match')
     for name, path in vars(args).items():
         if isinstance(path, Path) and name != 'output':
             require(path.exists(), f'Missing input {name}: {path}')

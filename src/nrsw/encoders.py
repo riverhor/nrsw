@@ -1,4 +1,4 @@
-"""Frozen Stable Diffusion and MobileNet descriptors for document images."""
+"""Extract Stable Diffusion and MobileNet features from document images."""
 from __future__ import annotations
 
 import hashlib
@@ -13,8 +13,7 @@ SD_MODEL_ID = "stable-diffusion-v1-5/stable-diffusion-v1-5"
 SD_REVISION = "451f4fe16113bff5a5d2269ed5ad43b0592e9a14"
 MOBILE_SHA256 = "047dcff4addef86ea5bc2eff13c9614dc11f47ab1160d0a71a25e7db994f4e1f"
 SD_LAYERS = ("down_blocks.2", "mid_block", "up_blocks.1")
-# Content hashes of the archived pinned Hugging Face revision. These identify
-# weight bytes, not merely a user-supplied directory name or mutable model ID.
+# Checksums for the Stable Diffusion files used by this implementation.
 SD_ASSET_SHA256 = {
     "vae/diffusion_pytorch_model.fp16.safetensors": "4fbcf0ebe55a0984f5a5e00d8c4521d52359af7229bb4d81890039d2aa16dd7c",
     "unet/diffusion_pytorch_model.fp16.safetensors": "c83908253f9a64d08c25fc90874c9c8aef9a329ce1ca5fb909d73b0c83d1ea21",
@@ -227,8 +226,8 @@ def resolve_sd_snapshot(path=None, *, allow_download=False, precision="fp16"):
     if path is not None:
         snapshot = Path(path).expanduser()
         if not snapshot.is_dir():
-            raise FileNotFoundError(f"SD snapshot directory not found: {snapshot}")
-        # Arbitrary directory names are supported; content is pinned below.
+            raise FileNotFoundError(f"Stable Diffusion model directory not found: {snapshot}")
+        # The required files are checked when the encoder loads.
         return snapshot
     try:
         from huggingface_hub import snapshot_download
@@ -240,7 +239,7 @@ def resolve_sd_snapshot(path=None, *, allow_download=False, precision="fp16"):
                                     f"unet/diffusion_pytorch_model{variant}.safetensors",
                                     f"text_encoder/model{variant}.safetensors"]))
     except Exception as exc:
-        raise FileNotFoundError(f"Pinned SD1.5 snapshot {SD_REVISION} is unavailable locally. Supply --sd-snapshot or NRSW_SD_SNAPSHOT. --allow-download explicitly permits downloading the multi-GB snapshot.") from exc
+        raise FileNotFoundError(f"Stable Diffusion 1.5 weights are unavailable. Supply a local model directory with --sd-snapshot, set NRSW_SD_SNAPSHOT, or use --allow-download.") from exc
 
 
 class SDEncoder:
@@ -265,19 +264,19 @@ class SDEncoder:
         for component, basename in (("vae", "diffusion_pytorch_model"), ("unet", "diffusion_pytorch_model"), ("text_encoder", "model")):
             file = self.snapshot/component/f"{basename}{variant}.safetensors"
             if not file.is_file():
-                raise FileNotFoundError(f"Missing required {precision} safe weight file: {file}. Use the complete pinned SD1.5 snapshot; no alternate encoder is substituted.")
+                raise FileNotFoundError(f"Missing the {precision} Stable Diffusion 1.5 weights at {file}.")
             self.assets[file.relative_to(self.snapshot).as_posix()] = sha256_file(file)
-        # Bind tokenization/scheduler/config bytes as well as neural weights.
+        # Check the tokenizer, scheduler, and model configuration files as well.
         for component in ("tokenizer", "scheduler", "vae", "unet", "text_encoder"):
             for file in sorted((self.snapshot/component).glob("*")):
                 if file.is_file() and file.suffix in (".json", ".txt"):
                     self.assets[file.relative_to(self.snapshot).as_posix()] = sha256_file(file)
         expected_config = {key for key in SD_ASSET_SHA256 if not key.endswith(".safetensors")}
         if not expected_config <= self.assets.keys():
-            raise FileNotFoundError(f"Incomplete pinned SD tokenizer/configuration: missing {sorted(expected_config-self.assets.keys())}")
+            raise FileNotFoundError(f"Missing Stable Diffusion files: {sorted(expected_config-self.assets.keys())}")
         for name, digest in self.assets.items():
             if SD_ASSET_SHA256.get(name) != digest:
-                raise ValueError(f"SD asset {name} does not match pinned revision {SD_REVISION}; restore the official snapshot bytes")
+                raise ValueError(f"The Stable Diffusion file {name} does not match revision {SD_REVISION}. Download that revision and try again.")
         kwargs = dict(local_files_only=True, torch_dtype=self.dtype, use_safetensors=True)
         if precision == "fp16":
             kwargs["variant"] = "fp16"
@@ -292,7 +291,7 @@ class SDEncoder:
         modules = dict(self.unet.named_modules())
         for name in SD_LAYERS:
             if name not in modules:
-                raise ValueError(f"SD snapshot lacks the required U-Net response layer {name}")
+                raise ValueError(f"The Stable Diffusion U-Net is missing the required layer {name}")
             def capture(module, inputs, output, key=name):
                 tensor = output[0] if isinstance(output, tuple) else output
                 self.responses[key] = tensor.float().mean(dim=(2, 3))

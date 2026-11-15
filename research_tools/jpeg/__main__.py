@@ -1,4 +1,4 @@
-"""The R62 raw-image common-JPEG reproduction."""
+"""Rerun the IDSpace experiment with common JPEG settings."""
 
 import argparse
 import hashlib
@@ -13,21 +13,21 @@ R5_MANIFEST_SHA256 = "4787d2afd36520cf5483b4ea60d06b1a3de9e4462668b2568de914dcc1
 def verify_runtime(runtime):
     manifest = runtime / "SHA256SUMS"
     if hashlib.sha256(manifest.read_bytes()).hexdigest() != R5_MANIFEST_SHA256:
-        raise ValueError("Expected the authenticated R5 runtime")
+        raise ValueError("The reproduction files do not match the archived checksums")
     for line in manifest.read_text(encoding="utf-8").splitlines():
         expected, name = line.split("  ", 1)
         item = (runtime / name).resolve(strict=True)
         if not item.is_relative_to(runtime) or hashlib.sha256(item.read_bytes()).hexdigest() != expected:
-            raise ValueError(f"Changed R5 file: {name}")
+            raise ValueError(f"Reproduction file checksum does not match: {name}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--r5-runtime", required=True, type=Path, help="Extracted authenticated R5 companion")
+    parser.add_argument("--r5-runtime", required=True, type=Path, help="Unpacked reproduction files")
     parser.add_argument("--run", required=True, type=Path, help="New working directory for this JPEG run")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("plan", help="Freeze the archived roster and common JPEG settings")
-    stage = commands.add_parser("stage", help="Stage the original images in the run directory")
+    commands.add_parser("plan", help="Use the original splits and set the shared JPEG settings")
+    stage = commands.add_parser("stage", help="Prepare the original images in the run directory")
     acquisition = stage.add_mutually_exclusive_group(required=True)
     acquisition.add_argument("--archives", nargs=2, type=Path)
     acquisition.add_argument("--local-map", type=Path)
@@ -44,16 +44,16 @@ def main():
             command.add_argument("segment", type=int)
             command.add_argument("--worker-input", type=Path, help=argparse.SUPPRESS)
             command.add_argument("--input-sha256", help=argparse.SUPPRESS)
-    refit = commands.add_parser("refit", help="Fit all five methods, finish CAL, then score TEST")
-    refit.add_argument("--qualification", action="store_true", help="Qualify the first context per fold")
+    refit = commands.add_parser("refit", help="Fit and calibrate all five methods before scoring the test set")
+    refit.add_argument("--qualification", action="store_true", help="Run one fit per fold")
     frozen = commands.add_parser("freeze", help="Score common JPEG with original fitted models and cutoffs")
-    frozen.add_argument("--native-measurements", required=True, type=Path, help="Sealed original-encoding R5 store")
+    frozen.add_argument("--native-measurements", required=True, type=Path, help="Verified features from images with their original encoding")
     mode = frozen.add_mutually_exclusive_group()
-    mode.add_argument("--submission", type=Path, help="Compare the full fixed-model result with the R62 submission")
-    mode.add_argument("--qualification", action="store_true", help="Qualify context f0_d3_o0")
+    mode.add_argument("--submission", type=Path, help="Compare the fixed-model results with the paper")
+    mode.add_argument("--qualification", action="store_true", help="Run one fit from the first fold")
     intervals = commands.add_parser("intervals", help="Recompute paired JPEG-refit intervals")
     intervals.add_argument("--native-run", type=Path, help="Optional original-encoding raw rerun for paired changes")
-    verify = commands.add_parser("verify", help="Compare operating points and intervals with R62")
+    verify = commands.add_parser("verify", help="Compare operating points and intervals with the paper")
     verify.add_argument("--submission", required=True, type=Path)
     args = parser.parse_args()
     runtime = args.r5_runtime.resolve(strict=True)

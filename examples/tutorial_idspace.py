@@ -1,4 +1,4 @@
-"""Make the image tutorial inputs from the R29 metadata and staged IDSpace SVK images."""
+"""Prepare the image tutorial from the IDSpace Slovak ID images and saved splits."""
 
 import argparse
 import gzip
@@ -27,7 +27,7 @@ def packet(metadata, images, output):
         with (metadata / name).open("rb") as stream:
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
         if digest != receipt["files"][name]["sha256"]:
-            raise ValueError(f"Metadata digest differs from the R29 export receipt: {name}")
+            raise ValueError(f"Metadata checksum mismatch for {name}")
     layout = read(metadata / "layout.json")
     fields = layout["field_order"]
     documents = {row["id"]: row for row in read(metadata / "documents.json")["rows"]}
@@ -60,7 +60,7 @@ def packet(metadata, images, output):
 
     used = {record["group"] for record in rows}
     if len(used) != len(rows):
-        raise ValueError("The archived fitting roles must have distinct source groups")
+        raise ValueError("The training images must come from distinct source groups")
 
     def choose(identifiers, count, label, role):
         chosen = []
@@ -98,8 +98,8 @@ def packet(metadata, images, output):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--metadata", type=Path, required=True, help="R29 companion metadata directory")
-    parser.add_argument("--images", type=Path, required=True, help="staged SVK image directory")
+    parser.add_argument("--metadata", type=Path, required=True, help="folder containing the saved IDSpace splits and layout")
+    parser.add_argument("--images", type=Path, required=True, help="folder containing the extracted Slovak ID images")
     parser.add_argument("--output", type=Path, required=True, help="new tutorial input directory")
     args = parser.parse_args()
     packet(args.metadata, args.images.resolve(), args.output)

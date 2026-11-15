@@ -43,7 +43,7 @@
           <h2 id="demo-title">Inspect a prediction</h2>
         </div>
         <div class="trace-controls">
-          <label class="file-label"><span>Open trace JSON</span><input type="file" id="trace-file" accept=".json,application/json"></label>
+          <label class="file-label"><span>Open prediction file</span><input type="file" id="trace-file" accept=".json,application/json"></label>
           <button type="button" id="restore" class="quiet-button" hidden>Restore examples</button>
         </div>
       </div>
@@ -52,7 +52,7 @@
       <div id="inspector" hidden>
         <div class="control-strip">
           <div class="select-control"><label for="example-select">Document</label><select id="example-select"></select></div>
-          <div class="select-control"><label for="threshold-select">False-positive budget</label><select id="threshold-select"></select></div>
+          <div class="select-control"><label for="threshold-select">Target false-positive rate</label><select id="threshold-select"></select></div>
         </div>
         <div class="inspection-grid">
           <article class="document-panel" aria-labelledby="documents-title">
@@ -60,7 +60,7 @@
             <div id="illustrations" class="document-pair">
               <figure>
                 <div class="permit" id="reference-card" aria-label="Fictional reference card"></div>
-                <figcaption>Genuine layout reference</figcaption>
+                <figcaption>Genuine reference</figcaption>
               </figure>
               <figure>
                 <div class="permit candidate" id="candidate-card" aria-label="Fictional example card"></div>
@@ -76,7 +76,7 @@
               <thead><tr><th scope="col">Field</th><th scope="col">Weight</th><th scope="col">Energy</th></tr></thead>
               <tbody id="field-rows"></tbody>
             </table>
-            <p id="evidence-help" class="muted">Energy measures a field’s departure along learned directions. The weight is its share of local pooling. Select a field to locate it on the cards.</p>
+            <p id="evidence-help" class="muted">Energy measures how unusual a field looks along the learned directions. Its weight determines its share of the combined local features. Select a field to locate it on the cards.</p>
           </article>
         </div>
         <div class="decision" aria-live="polite">
@@ -88,7 +88,7 @@
             <div><dt>Model score</dt><dd id="score-value"></dd></div>
             <div><dt>Threshold</dt><dd id="threshold-value"></dd></div>
           </dl>
-          <p class="decision-note">Scores above the threshold are flagged for review. The nominal budget selects a threshold from held-out genuine scores.</p>
+          <p class="decision-note">The threshold is set using separate genuine documents. A score above it flags the document for review.</p>
           <button type="button" id="download" class="quiet-button">Download this prediction</button>
         </div>
       </div>
@@ -97,14 +97,14 @@
     <section id="method" class="explain" aria-labelledby="method-title">
       <h2 id="method-title">How NRSW works</h2>
       <ol class="method-steps">
-        <li><h3>Register the layout</h3><p>Align the documents and mark the same fields on every example. Genuine references describe the variation expected in each field.</p></li>
-        <li><h3>Learn local evidence</h3><p>Mark one or two candidate fields on each forged training document. NRSW contrasts genuine and forged residuals to learn directions in which local variation increases.</p></li>
+        <li><h3>Register the layout</h3><p>Mark the field locations on a genuine layout reference. Align documents to that layout and measure how its fields vary across genuine documents.</p></li>
+        <li><h3>Learn local evidence</h3><p>Mark one or two fields that may have been edited in each forged training document. NRSW compares them with the same fields on genuine documents to learn which changes are associated with forgery.</p></li>
         <li><h3>Score and calibrate</h3><p>The classifier uses signed field features, an evidence-weighted summary, peak evidence strength, and global features. A separate genuine set determines the score threshold.</p></li>
       </ol>
     </section>
 
     <section id="use" class="use" aria-labelledby="use-title">
-      <div><h2 id="use-title">Try your own layout</h2><p>Install the Python package and follow the project README to extract features, fit a detector, and calibrate it. Open an exported trace above to inspect predictions from your own model. Imported traces stay in your browser.</p></div>
+      <div><h2 id="use-title">Try your own layout</h2><p>Install the Python package and follow the project README to extract features, fit a detector, and calibrate it. Open a prediction file exported by NRSW to inspect your model’s decisions. The file stays in your browser.</p></div>
       <pre><code>python -m pip install .
 nrsw serve</code></pre>
     </section>

@@ -1,4 +1,4 @@
-"""Fixed R62 registry-card rosters and authenticated CrossVerify v1 image input."""
+"""Read the registry-card splits and verify the CrossVerify v1 images."""
 
 from hashlib import file_digest, sha256
 from io import BytesIO

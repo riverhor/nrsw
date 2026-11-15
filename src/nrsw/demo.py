@@ -81,7 +81,7 @@ def trace(model, dataset, calibration: Calibration | None, *, specimen=False):
         weights, energies = next(local_rows) if valid else (None, None)
         if identifier == borderline:
             identifier, title, note, edited = ("borderline", "Genuine card near the threshold",
-                                               "This genuine example changes decision when you select a different false-positive budget.", None)
+                                               "The decision on this genuine document depends on the target false-positive rate.", None)
         else:
             title, note, edited = SAMPLE_NAMES[identifier] if specimen else (identifier, "", None)
         examples.append({"id": identifier, "title": title, "note": note,

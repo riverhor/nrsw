@@ -1,4 +1,4 @@
-"""Replay the R62 IDSpace SVK operating points from an ordinal score companion."""
+"""Check IDSpace Slovak ID results from saved score ranks."""
 from __future__ import annotations
 
 from hashlib import file_digest, sha256
@@ -67,7 +67,7 @@ def _metric_fold(packet, variant, labels, membership, methods):
 def _check(actual, reference, name):
     reference = np.asarray(reference)
     _require(actual.shape == reference.shape and np.allclose(actual, reference, rtol=0, atol=2e-9),
-             f"Archived R62 SVK result differs for {name}")
+             f"The recalculated IDSpace result differs from the saved result for {name}")
 
 
 def _result(values, methods):
@@ -79,10 +79,10 @@ def _result(values, methods):
 
 
 def replay(path: Path, native_reference: dict, jpeg_reference: dict, crossed_reference: dict) -> dict:
-    """Verify the rank score bundle and recompute ROC and own-threshold point estimates."""
+    """Recompute ROC and fixed-threshold error rates from saved score ranks."""
     with path.open("rb") as stream:
         digest = file_digest(stream, "sha256").hexdigest()
-        _require(digest == SVK_REPLAY_SHA256, f"Expected the R62 SVK rank score ZIP with SHA-256 {SVK_REPLAY_SHA256}; got {digest}")
+        _require(digest == SVK_REPLAY_SHA256, f"The IDSpace score ZIP must have SHA-256 {SVK_REPLAY_SHA256}. Found {digest}")
         stream.seek(0)
         with ZipFile(stream) as archive:
             manifest = json.loads(archive.read("MANIFEST.json"))
@@ -93,11 +93,11 @@ def replay(path: Path, native_reference: dict, jpeg_reference: dict, crossed_ref
             for fold in range(4):
                 name = f"fold{fold}.npz"
                 data = archive.read(name)
-                _require(sha256(data).hexdigest() == manifest["files"][name], f"Changed SVK packet {name}")
+                _require(sha256(data).hexdigest() == manifest["files"][name], f"Checksum mismatch for {name} in the IDSpace score ZIP")
                 with np.load(BytesIO(data), allow_pickle=False) as packet:
                     labels, membership = packet["label"], packet["component"]
                     _require(labels.ndim == 1 and membership.shape == labels.shape and np.isin(labels, (0, 1)).all(),
-                             "Malformed IDSpace SVK role arrays")
+                             "The IDSpace score file has invalid labels or groups")
                     native_point, mass = _metric_fold(packet, "native", labels, membership, NATIVE_METHODS)
                     jpeg_point, _ = _metric_fold(packet, "jpeg", labels, membership, JPEG_METHODS)
                 weights = mass[[1, 0, 1]]
@@ -105,7 +105,7 @@ def replay(path: Path, native_reference: dict, jpeg_reference: dict, crossed_ref
                 jpeg += jpeg_point * weights[:, None]
                 full_mass += weights
                 total += len(labels)
-    _require(total == 16210 and full_mass.tolist() == [1183, 1411, 1183], "Expected R62 SVK held population")
+    _require(total == 16210 and full_mass.tolist() == [1183, 1411, 1183], "The IDSpace score file has an unexpected number of test images or groups")
     native /= full_mass[:, None]
     jpeg /= full_mass[:, None]
     for method, point in zip(NATIVE_METHODS[:4], native[:4], strict=True):

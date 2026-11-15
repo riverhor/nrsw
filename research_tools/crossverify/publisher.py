@@ -1,4 +1,4 @@
-"""Acquire the pinned publisher inputs and reproduce the R62 CrossVerify comparison."""
+"""Download the published data and rerun the CrossVerify label-budget comparison."""
 
 import argparse
 from hashlib import sha256
@@ -28,7 +28,7 @@ def install_runtime(submission, root):
     if not root.exists():
         with _r62_evidence(submission) as evidence:
             payload = evidence.read(RAW_RUNTIME)
-        require(sha256(payload).hexdigest() == PINS['r5'], 'Pinned nested R5 archive differs')
+        require(sha256(payload).hexdigest() == PINS['r5'], 'Checksum mismatch in the nested reproduction archive')
         with TemporaryDirectory(dir=root.parent) as temp, ZipFile(BytesIO(payload)) as archive:
             staged = Path(temp) / 'r5'
             archive.extractall(staged)
@@ -58,12 +58,12 @@ def acquire_snapshot(path, work):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--r62', type=Path, required=True, help='Original R62 submission ZIP')
+    parser.add_argument('--submission', '--r62', dest='r62', metavar='ZIP', type=Path, required=True, help='Paper submission archive')
     parser.add_argument('--work', type=Path, required=True, help='Working directory for assets and results')
     parser.add_argument('--shared-parent', type=Path, help='Optional historical checkpoint from the authors')
     parser.add_argument('--images', type=Path, help='Prepared CrossVerify publisher ZIP or extracted tree')
     parser.add_argument('--sd-snapshot', type=Path, help='Prepared pinned SD1.5 FP16 snapshot')
-    parser.add_argument('--r5', type=Path, help='Already extracted R5 runtime root, containing package and metadata')
+    parser.add_argument('--r5', metavar='DIR', type=Path, help='Unpacked reproduction directory containing package and metadata')
     parser.add_argument('--prepare-only', action='store_true', help='Acquire and verify inputs without running CUDA')
     parser.add_argument('--all-budgets', action='store_true', help='Include the 60-, 120- and 240-forgery fits')
     args = parser.parse_args()
@@ -78,7 +78,7 @@ def main():
         require(not output.exists(), f'Output already exists: {output}')
     runtime = args.r5 or args.work.resolve() / 'r5'
     if args.r5 is not None:
-        require(runtime.is_dir(), f'Extract the provided R5 path first: {runtime}')
+        require(runtime.is_dir(), f'Extract the reproduction files first: {runtime}')
     mean = install_runtime(args.r62, runtime)
     images = args.images or base / 'crossverify_dataset_v1.zip'
     if args.images is None and not images.exists():
@@ -95,7 +95,7 @@ def main():
     snapshot = acquire_snapshot(args.sd_snapshot, args.work.resolve())
     if args.prepare_only:
         count = sum(len(experiment[role]) for role in ('train', 'cal', 'test'))
-        print(f'Verified {count} publisher images, public weights and R5 runtime for {output}')
+        print(f'Verified {count} published images, weights and reproduction files for {output}')
         return
     optional = ('--shared-parent', args.shared_parent) if args.shared_parent is not None else ()
     budget_option = ('--all-budgets',) if args.all_budgets else ()

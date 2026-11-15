@@ -1,4 +1,4 @@
-"""Refit the matched full-image ResNet-18 baseline on the frozen SVK roles."""
+"""Fit ResNet-18 on whole images using the original SVK splits."""
 
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace

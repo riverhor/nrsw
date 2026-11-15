@@ -35,7 +35,7 @@ def _select(dataset: FeatureDataset, roles: Iterable[str]) -> FeatureDataset:
     roles = tuple(roles)
     selected = np.isin(dataset.roles, roles)
     if not selected.any():
-        raise ValueError(f"feature packet has no {' or '.join(roles)} rows")
+        raise ValueError(f"No documents with the {' or '.join(roles)} assignment were found in the feature file")
     return dataset.subset(selected)
 
 
@@ -108,7 +108,7 @@ class Calibration:
     def cut(self, fpr) -> CalibrationResult:
         key = calibration_key(fpr)
         if key not in self.cuts:
-            raise ValueError(f"no threshold for FPR {fpr}; calibrate at this budget first")
+            raise ValueError(f"The model has no threshold for a false-positive rate of {fpr}. Calibrate at that rate first.")
         cut = self.cuts[key]
         if not cut.available:
             raise ValueError(f"no finite threshold for FPR {fpr} with {cut.n} genuine calibration documents")
@@ -143,7 +143,7 @@ def calibrate(model: JointModel | FieldClassifierModel, dataset: FeatureDataset,
     scores = _score(model, genuine, feature_batch(genuine))
     cuts = {calibration_key(fpr): calibrate_scores(scores, fpr, delta) for fpr in fprs}
     if not cuts:
-        raise ValueError("provide at least one false-positive budget")
+        raise ValueError("Provide at least one target false-positive rate")
     return Calibration(model.training_identity, _lineage(genuine), cuts)
 
 

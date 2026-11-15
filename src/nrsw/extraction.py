@@ -116,7 +116,7 @@ def decode_image(path, expected_sha256=None):
 
 
 class ImageEncoders:
-    """Own one reusable pair of frozen visual encoders."""
+    """Reuse the same visual encoders across images."""
 
     def __init__(self, *, device="auto", batch_size=1, mobile_batch_size=32, sd_snapshot=None,
                  mobile_weights=None, precision="auto", allow_download=False):
@@ -224,7 +224,7 @@ def extract_manifest(manifest_path, layout_path, output_path, *, device="auto", 
 
     `progress`, when provided, is called with completed and total image counts.
     Heavy encoders are instantiated only here. Network access is opt-in.
-    Existing outputs are rejected to preserve reviewable feature provenance.
+    Choose a new output file to avoid replacing saved features.
     """
     from .schema import save_feature_dataset
     output = Path(output_path).resolve()

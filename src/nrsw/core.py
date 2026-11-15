@@ -175,7 +175,7 @@ def pool_aligned(dataset: FeatureDataset, alpha: np.ndarray,
     if alpha.dtype != np.float32 or alpha.shape != (len(dataset), m):
         raise ValueError("pooling alpha must be FP32 [N,m]")
     if delta.shape != (m, d) or offset.shape != (dg + d,):
-        raise ValueError("alignment dimensions disagree with feature contract")
+        raise ValueError("The alignment vector does not match the feature dimensions")
     raw = np.concatenate((dataset.global_features, dataset.global_mobile), axis=1)
     out = (raw.astype(np.float64) - offset).astype(np.float32)
     positions = np.flatnonzero(dataset.local_valid)

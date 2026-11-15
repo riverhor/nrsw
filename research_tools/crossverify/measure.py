@@ -145,7 +145,7 @@ def main():
     parser.add_argument('--all-budgets', action='store_true')
     args = parser.parse_args()
     if args.encoder in ('mobile', 'sd') and args.r5_runtime is None:
-        parser.error('Mobile and SD need --r5-runtime pointing to the extracted R62 R5 runtime')
+        parser.error('Pass --r5-runtime with the directory containing the extracted encoder code')
     if args.encoder in ('mobile', 'sd') and args.device != 'cuda:0':
         parser.error('The native Mobile and SD route uses cuda:0')
     args.output.mkdir(parents=True, exist_ok=True)

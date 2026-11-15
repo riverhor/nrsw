@@ -1,11 +1,11 @@
-# Datasets used in R62
+# Datasets
 
-The code is distributed under MIT. The three evaluation datasets below are published separately under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Cite the data record as well as the paper when you reuse a dataset. The role and field files in the R62 companion identify the exact train, calibration and test records.
+The datasets below are available from their publishers under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). When reusing a dataset, cite its data record and paper where available. The [reproduction guide](raw-reproduction.md) explains how to obtain the study's training, calibration and test assignments and field annotations.
 
 | Dataset | What it is used for | Release and downloads |
 | --- | --- | --- |
-| IDSpace, Slovak ID card (`SVK`) | Main few-forgery comparison, spectral and pooling ablations, the common JPEG refit, field recovery and the enlarged test set | [Pinned dataset card](https://huggingface.co/datasets/cactuslab/IDSpace/tree/a3de23b950d55a39fbd36cfaee16bd260c4d457d) · [Templates](https://huggingface.co/datasets/cactuslab/IDSpace/resolve/a3de23b950d55a39fbd36cfaee16bd260c4d457d/SVK_template.tar.gz) · [Simulated scans](https://huggingface.co/datasets/cactuslab/IDSpace/resolve/a3de23b950d55a39fbd36cfaee16bd260c4d457d/SVK_scan.tar.gz) · [Paper](https://arxiv.org/abs/2609.03052) |
-| CrossVerify v1 | Registry-card label-budget comparison and both registered-layout comparisons | [Data record and download](https://doi.org/10.5281/zenodo.23136723) · [Publisher file list and checksums](https://zenodo.org/api/records/23136723) · [Pinned publisher splits and baseline code](https://github.com/kanija16/CrossVerify/tree/5f7aabc867735d4f429339519a2d97e261fb6a7f) |
+| IDSpace, Slovak ID card (`SVK`) | Main comparison with 15 annotated forgeries per fit, estimator and pooling comparisons, JPEG controls, field recovery and larger test set | [Dataset card](https://huggingface.co/datasets/cactuslab/IDSpace/tree/a3de23b950d55a39fbd36cfaee16bd260c4d457d) · [Templates](https://huggingface.co/datasets/cactuslab/IDSpace/resolve/a3de23b950d55a39fbd36cfaee16bd260c4d457d/SVK_template.tar.gz) · [Simulated scans](https://huggingface.co/datasets/cactuslab/IDSpace/resolve/a3de23b950d55a39fbd36cfaee16bd260c4d457d/SVK_scan.tar.gz) · [Paper](https://arxiv.org/abs/2609.03052) |
+| CrossVerify v1 | Comparison across forgery label counts on registry cards, plus evaluation on both document layouts | [Data record and download](https://doi.org/10.5281/zenodo.23136723) · [Publisher file list and checksums](https://zenodo.org/api/records/23136723) · [Publisher splits and baseline code](https://github.com/kanija16/CrossVerify/tree/5f7aabc867735d4f429339519a2d97e261fb6a7f) |
 | IDNet-2025, Estonia ID card (`EST`) | Supplementary native-template evaluation and encoding sensitivity experiment | [Versioned dataset card](https://huggingface.co/datasets/cactuslab/IDNet-2025/blob/f62be958aa084401f79f31f87ad11bcaf5a994bf/README.md) · [EST template archive](https://huggingface.co/datasets/cactuslab/IDNet-2025/resolve/6e6b61e8a876f2f826ff7cfecf77fe842aa94383/EST.tar.gz) · [IDNet paper](https://doi.org/10.1109/BigData62323.2024.10825017) |
 
 ## Suggested citations
@@ -22,11 +22,11 @@ The code is distributed under MIT. The three evaluation datasets below are publi
 | `SVK_scan.tar.gz` | 3,659,479,059 | `fe12457c293480aafbe82d743872207041fd8c0148ee3dc21ea1e24f2869a99f` |
 | `EST.tar.gz` | 1,354,221,557 | `bd4c6763707fba2bb64eb8d70b65916a5dcb31c7c7109796326cf412cf142ef6` |
 
-CrossVerify v1 is published as 46 ZIP parts. The complete joined file is 4,794,551,940 bytes, with SHA-256 `95bac9830fb4683462d20fa5a410b6532d1607eb28a00a03441c09ccff37e02f`. The runner verifies the parts against the publisher's size and checksum list and checks each selected image against the fixed R62 roster.
+CrossVerify v1 is published as 46 ZIP parts. The combined file is 4,794,551,940 bytes and has SHA-256 `95bac9830fb4683462d20fa5a410b6532d1607eb28a00a03441c09ccff37e02f`. The reproduction script checks the parts against the publisher's file sizes and checksums and verifies each selected image against the study's image list.
 
-## Historical sources
+## Datasets for existing detectors
 
-The historical detector experiments also use these datasets. Follow the terms and access instructions in each publisher record. The registry-card refit uses the frozen historical core as an input to one comparator.
+These datasets were used for the existing detectors. One registry-card comparator uses features from their trained shared model. Follow the terms and access instructions in each publisher record.
 
 | Dataset | Source and citation |
 | --- | --- |

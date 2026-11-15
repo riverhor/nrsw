@@ -82,7 +82,7 @@ def _geometry_contract(registrar):
 
 
 def extract_images(layout_path, output_path, *, manifest_path=None, image_path=None, **encoder_options):
-    """Write a feature packet from a manifest or one unlabelled query."""
+    """Save features for the listed images or one new image."""
     if (manifest_path is None) == (image_path is None):
         raise ValueError("Supply one of manifest_path or image_path")
     options = dict(
@@ -128,18 +128,18 @@ def add_encoder_options(parser):
     parser.add_argument("--precision", choices=("auto", "fp16", "fp32"), default="auto")
     parser.add_argument("--batch-size", type=int, default=1, help="Stable Diffusion batch size")
     parser.add_argument("--mobile-batch-size", type=int, default=32, help="MobileNet batch size")
-    parser.add_argument("--sd-snapshot", type=Path, help="Local Stable Diffusion 1.5 snapshot")
+    parser.add_argument("--sd-snapshot", type=Path, help="Local Stable Diffusion 1.5 model directory")
     parser.add_argument("--mobile-weights", type=Path, help="Local MobileNetV3-Small weights")
     parser.add_argument("--allow-download", action="store_true", help="Allow downloads of missing encoder weights")
 
 
 def add_vision_commands(subparsers):
-    parser = subparsers.add_parser("extract", help="Extract descriptors from images for one layout")
+    parser = subparsers.add_parser("extract", help="Extract features from images of one layout")
     input_group = parser.add_mutually_exclusive_group(required=True)
     input_group.add_argument("--manifest", type=Path, help="JSONL, JSON or CSV image manifest")
-    input_group.add_argument("--image", type=Path, help="One unlabelled query image")
+    input_group.add_argument("--image", type=Path, help="One unlabelled image")
     parser.add_argument("--layout", required=True, type=Path, help="Layout JSON file")
-    parser.add_argument("--output", required=True, type=Path, help="New .npz feature packet")
-    parser.add_argument("--field-classifiers", action="store_true", help="Include native-pixel field features for the optional extension")
+    parser.add_argument("--output", required=True, type=Path, help="Output feature file (.npz)")
+    parser.add_argument("--field-classifiers", action="store_true", help="Extract pixel features for the optional field classifiers")
     add_encoder_options(parser)
     parser.set_defaults(handler=_run_extract)

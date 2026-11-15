@@ -1,4 +1,4 @@
-"""Evaluate newly generated matched SVK score packets with the released grouped estimand."""
+"""Evaluate detector scores with equal weight for source groups."""
 
 from collections import defaultdict
 

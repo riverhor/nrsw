@@ -1,8 +1,8 @@
 # Serving multiple layouts
 
-Fit and calibrate one detector per layout. Copy the layout geometry, model directory and calibration file to the computer that runs inference. Preserve the encoder weights, device, precision and batch settings used when extracting training features.
+Fit and calibrate one detector per layout. Copy the geometry, model directory and calibration file to the computer that will score new images. Use the encoder weights, device, precision and batch settings used to extract the training features. The [architecture diagrams](architecture.md) show what the layouts share.
 
-Create a registry JSON file:
+List the files for each layout in a registry such as `layouts.json`.
 
 ```json
 {
@@ -14,13 +14,13 @@ Create a registry JSON file:
 }
 ```
 
-Paths are relative to the registry file. Each key must match the layout ID in both the geometry and model. A registry can serve the original model and the field-classifier variant on different layouts.
+Paths are relative to the registry file. Each key must match the layout ID in both the geometry and model. A registry can serve NRSW and NRSW with field classifiers on different layouts.
 
 ```console
 nrsw route --registry layouts.json --layout-id card-v1 --image query.png --fpr 0.05 --device cuda
 ```
 
-The example assumes that the pinned encoder weights are already cached. Supply the same local weight paths on each call if you keep them elsewhere. To avoid loading the encoders for every request, keep a Python registry open:
+The command uses encoder weights already in the local cache. If you downloaded them to a custom location, pass `--sd-snapshot` and `--mobile-weights`. In Python, keep the registry open to reuse the encoders across requests.
 
 ```python
 from nrsw import LayoutRegistry
@@ -30,14 +30,14 @@ with LayoutRegistry.from_file("layouts.json", device="cuda") as detector:
     passport = detector.predict_image("pass-v2", "pass-query.png", fpr="0.05")
 ```
 
-The application supplies the layout ID. If the application already has a detector for historical layouts, call `detector.supports(layout_id)` and use the existing route for other IDs. A direct call with an unregistered ID raises `UnknownLayoutError`. To add a layout, fit and calibrate it, add one entry, then load the revised registry.
+The application supplies the layout ID. If it already has detectors for other layouts, use `detector.supports(layout_id)` to decide when to call NRSW. `predict_image` raises `UnknownLayoutError` for an unknown ID. To add a layout, fit and calibrate a detector, add its entry, and reload the registry.
 
 ## Inspect predictions in a browser
 
-Supply an extracted query or evaluation packet to the local demonstration page:
+Open the local demo with a feature file from your query or evaluation images.
 
 ```console
 nrsw serve --model runs/card/model --features runs/queries.npz --calibration runs/card/cuts.json
 ```
 
-For a static version of the generated example, run `nrsw export-demo --output site` and open `site/index.html`. To publish it on GitHub Pages, select **GitHub Actions** as the source under **Settings → Pages** and run **Demo on GitHub Pages** on the default branch.
+For a static demo with generated examples, run `nrsw export-demo --output site` and open `site/index.html`. To publish it on GitHub Pages, select **GitHub Actions** as the source under **Settings → Pages** and run the **Demo on GitHub Pages** workflow on the default branch.

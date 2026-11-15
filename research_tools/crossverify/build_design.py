@@ -1,4 +1,4 @@
-"""Export portable b15 image authority from the sealed CrossVerify study metadata."""
+"""Export the verified image list for the 15-label CrossVerify comparison."""
 
 import argparse
 import json

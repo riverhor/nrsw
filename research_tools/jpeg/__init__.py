@@ -1,1 +1,1 @@
-"""R62 common-JPEG reproduction from IDSpace SVK images."""
+"""JPEG re-encoding checks on Slovak IDSpace images."""

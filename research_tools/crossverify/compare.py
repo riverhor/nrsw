@@ -1,4 +1,4 @@
-"""Compare new CrossVerify scores with the authenticated R62 budget estimates."""
+"""Compare CrossVerify scores with the paper's label-budget results."""
 
 import argparse
 from io import BytesIO
@@ -42,7 +42,7 @@ def evaluate(vectors, labels, membership, pooled_counts, folds):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--r62', type=Path, required=True)
+    parser.add_argument('--submission', '--r62', dest='r62', metavar='ZIP', type=Path, required=True)
     parser.add_argument('--run', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--all-budgets', action='store_true')
@@ -51,7 +51,7 @@ def main():
     args = parser.parse_args()
     if not args.check_archived_budgets and args.run is None:
         parser.error('--run is required unless checking archived budgets')
-    require(digest(args.r62) == released.R62_SHA256, 'R62 submission ZIP differs')
+    require(digest(args.r62) == released.R62_SHA256, 'The submission archive checksum does not match')
     experiment = design(args.all_budgets or args.check_archived_budgets)
     models = context_ids(experiment)
     with ZipFile(args.r62) as archive:

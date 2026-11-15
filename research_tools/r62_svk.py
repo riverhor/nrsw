@@ -1,4 +1,4 @@
-"""Acquire and reproduce the R62 Slovak IDSpace experiments."""
+"""Download the IDSpace data and rerun the Slovak ID experiments."""
 
 import argparse
 from hashlib import file_digest, sha256
@@ -232,23 +232,23 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--work", type=lambda p: Path(p).resolve(), required=True)
     action = parser.add_subparsers(dest="action", required=True)
-    init = action.add_parser("unpack", help="unpack the verified R62 image runtime")
+    init = action.add_parser("unpack", help="unpack the software and references from the paper archive")
     init.add_argument("submission", type=Path)
-    get = action.add_parser("download", help="get the pinned publisher archives and visual weights")
+    get = action.add_parser("download", help="download the original image archives and encoder weights")
     for key in ("archives", "sd-snapshot", "mobile"):
         get.add_argument(f"--{key}", type=Path)
     get.add_argument("--encoders-only", action="store_true", help="for an already verified local image map")
     common = action.add_parser("jpeg", help="extract, refit, and verify the common-JPEG experiment")
     common.add_argument("submission", type=Path)
     for stage, help_text in (
-        ("prepare", "verify and stage the exact released image rows"),
-        ("mobile", "extract native MobileNet descriptors"),
-        ("sd", "extract native Stable Diffusion descriptors and seal the paired store"),
+        ("prepare", "check and prepare the original images"),
+        ("mobile", "extract MobileNet features"),
+        ("sd", "extract Stable Diffusion features and verify both sets of features"),
         ("fit", "fit, calibrate, evaluate, and check against the archived reference"),
         ("all", "stage images, extract features, fit, and evaluate"),
     ):
         command = action.add_parser(stage, help=help_text)
-        command.add_argument("--context", default="all", help="all, or one archived context such as f0_d3_o0")
+        command.add_argument("--context", default="all", help="all fits, or one saved split such as f0_d3_o0")
         if stage in ("prepare", "all"):
             command.add_argument("--local-images", type=Path, help="reuse an existing raw-file map, with per-image verification")
     args = parser.parse_args()

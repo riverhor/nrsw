@@ -1,4 +1,4 @@
-"""Grouped point and paired resampling arithmetic from the R62 common-JPEG study."""
+"""Point estimates and paired intervals for grouped JPEG results."""
 
 import numpy as np
 

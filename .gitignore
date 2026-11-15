@@ -17,6 +17,12 @@ models/
 runs/
 weights/
 /r62-work/
+/paper.zip
+/idspace-scores.zip
+/study-runtime.zip
+/study-runtime/
+/manuscript/
+/crossverify_score_replay/
 /NRSW_R62_submission_package.zip
 /NRSW_R62_SVK_rank_score_replay.zip
 *.npz
