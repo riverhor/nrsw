@@ -25,7 +25,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--r5-runtime", required=True, type=Path, help="Unpacked reproduction files")
     parser.add_argument("--run", required=True, type=Path, help="New working directory for this JPEG run")
-    commands = parser.add_subparsers(dest="command", required=True)
+    commands = parser.add_subparsers(dest="command", metavar="COMMAND", required=True)
     commands.add_parser("plan", help="Use the original splits and set the shared JPEG settings")
     stage = commands.add_parser("stage", help="Prepare the original images in the run directory")
     acquisition = stage.add_mutually_exclusive_group(required=True)
@@ -35,7 +35,8 @@ def main():
     probe.add_argument("--images", required=True, type=Path)
     probe.add_argument("--segment", type=int, default=0)
     for name in ("measure", "_worker"):
-        command = commands.add_parser(name, help="Run or resume extraction" if name == "measure" else argparse.SUPPRESS)
+        options = {"help": "Run or resume extraction"} if name == "measure" else {}
+        command = commands.add_parser(name, **options)
         command.add_argument("--images", required=True, type=Path)
         command.add_argument("--mobile-weights", required=True, type=Path)
         command.add_argument("--sd-snapshot", required=True, type=Path)
