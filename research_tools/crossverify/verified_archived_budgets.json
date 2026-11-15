@@ -1,0 +1,36 @@
+{
+  "scope": "Archived score validation. No fresh higher-budget GPU fits.",
+  "budgets": [
+    15,
+    60,
+    120,
+    240
+  ],
+  "contexts": [
+    "b15_d0",
+    "b60_d0",
+    "b120_d0",
+    "b240_d0",
+    "b15_d1",
+    "b60_d1",
+    "b120_d1",
+    "b240_d1",
+    "b15_d2",
+    "b60_d2",
+    "b120_d2",
+    "b240_d2"
+  ],
+  "modes": [
+    "pooled_71_root_sensitivity",
+    "fixed_fold_primary"
+  ],
+  "paired_replicates": 5000,
+  "maximum_absolute_error_by_method_pp": {
+    "NRSW": 7.105427357601002e-15,
+    "CrossVerify_ResNet18": 2.842170943040401e-14,
+    "DINOv3_frozen_dense": 7.105427357601002e-15,
+    "FLiD_text_shared_regions": 1.4210854715202004e-14,
+    "GLOBAL_ONLY": 1.4210854715202004e-14,
+    "FROZEN_SHARED_CORE": 1.4210854715202004e-14
+  }
+}

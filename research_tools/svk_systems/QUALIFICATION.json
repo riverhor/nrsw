@@ -1,0 +1,48 @@
+{
+  "schema": "R62_SVK_MATCHED_QUALIFICATION_V1",
+  "added_publisher_images": {
+    "authenticated_and_staged": 12116,
+    "staging_sha256": "ae94f918a4a4e3dfc9e7fd6577a46bd376b1a9c8772c631432c4aa73f0f16b63"
+  },
+  "role_replay": {
+    "test_ids_in_order": 28326,
+    "context_count": 384,
+    "genuine_calibration_per_context": 500,
+    "component_count": 2435,
+    "exact_bootstrap_count_vectors": 5000
+  },
+  "grouped_evaluator": {
+    "status": "PASS",
+    "inputs": "Archived score packets for all six systems",
+    "matching_published_main_table_cells_at_two_decimals": 36,
+    "paired_replicates_per_population": 5000,
+    "results_sha256": "ab9c4d5ee8bcf96d5729f78344de1e5fcbb5ac5d89fbe7a126a12ac356acb4df"
+  },
+  "original_witness": {
+    "context": "f0_d3_o0",
+    "train": 290,
+    "calibration": 500,
+    "test": 4106,
+    "source": "R5 measurements regenerated from 4896 source images",
+      "model_and_score_receipt_sha256": "25dd26c610633bb475220ce742375608924e6e5c7c619c353f3961bdc48e56e0",
+    "NRSW_scores_exact": true,
+    "global_only_max_abs_score_error": 2.2737367544323206e-13,
+    "historical_shared_core_smoke_max_abs_CAL_score_error": 1.079953150551205e-05,
+    "historical_shared_core_smoke_max_abs_TEST_score_error": 3.0671278459237783e-06,
+    "historical_core_smoke_scope": "Single-context matrices differ in size from full-phase archive; full-run implementation uses the archived phase-union shapes"
+  },
+  "resnet": {
+    "archived_pixel_preprocessing_examples_exact": 5,
+    "raw_gpu_fit_verified": false
+  },
+  "dinov3": {
+    "native_and_scan_polygon_normalization_checked": true,
+    "raw_gpu_fit_verified": false
+  },
+  "flid": {
+    "synthetic_role_selection_and_head_fit_checked": true,
+    "raw_gpu_fit_verified": false
+  },
+  "added_image_descriptor_parity_verified": false,
+  "complete_raw_six_system_panel_verified": false
+}

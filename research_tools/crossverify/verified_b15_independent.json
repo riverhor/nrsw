@@ -1,0 +1,146 @@
+{
+  "status": "PASS_CROSSVERIFY_B15_RAW_COMPLETION_AUDIT",
+  "publication_sha256": "c5cbbd107a9774fd604eb311a59c7d87184d8e5b68a70569655ea21313f6b9d1",
+  "publisher_zip_sha256": "95bac9830fb4683462d20fa5a410b6532d1607eb28a00a03441c09ccff37e02f",
+  "publisher_zip_bytes": 4794551940,
+  "authenticated_images": {
+    "train": 143,
+    "cal": 75,
+    "test": 284
+  },
+  "ordered_train_row_instances": 345,
+  "fresh_fits": 18,
+  "measurement_packets": {
+    "train": {
+      "mobile": "e9505d343a54f9e06e75f26f9d7e244d67c31cdcbc3bbe8332be8e82dc7859a2",
+      "sd": "e8f6c44e85d5ee966520de2c4f73735fafc852548f8f8580d298d6196412b09d",
+      "dino": "281be012f84bb157e5f243210f4a318ca27c6e5e8b5574fd3c28b220f3b0cf1e"
+    },
+    "cal": {
+      "mobile": "33e9eb7192408e8133c235a5a504abccca785933a6190853880f84514c7ca79b",
+      "sd": "66522b1551152d31feac179eee1815266c62a97e53bbad878255071fa5e25e46",
+      "dino": "a320c795880c8be3a694e8b015a31ccc371bfce829b725e0928f16a0ddcde09e"
+    },
+    "test": {
+      "mobile": "0a9078018f9b711cb7f3814bbf809e076bb53bf14e41060110bcbfcefdfd0bc1",
+      "sd": "e5777393eb1b25516fcb5e3e0416b6407eb0c8382f48e31f2f5df0878d5d0ca0",
+      "dino": "6ba830905e4935045118654d82c2fe305d6d199749a8b5c7a9c40890c440a1c5"
+    }
+  },
+  "methods": {
+    "NRSW": {
+      "CAL": {
+        "rows": 225,
+        "bit_exact": true,
+        "max_abs_score_difference": 0.0
+      },
+      "TEST": {
+        "rows": 852,
+        "bit_exact": true,
+        "max_abs_score_difference": 0.0
+      },
+      "phase_receipt_sha256": {
+        "fit": "31b171606eeee1ebc1ee939e39a18490af025b00590daf4887d180487fc59cf4",
+        "cal": "e85091c6c3285b7eca992025b852442ac7b8c63fc1542eeda63ff869e1e0d5b0",
+        "test": "7bb61c401eca5cfd8cf5ecbcee2e9ac1948c99a28729f73fc51052c5652b455e"
+      }
+    },
+    "CrossVerify_ResNet18": {
+      "CAL": {
+        "rows": 225,
+        "bit_exact": true,
+        "max_abs_score_difference": 0.0
+      },
+      "TEST": {
+        "rows": 852,
+        "bit_exact": true,
+        "max_abs_score_difference": 0.0
+      },
+      "phase_receipt_sha256": {
+        "fit": "89e69afab3cdc87891ae383e07f95567e7bcfb3be66bc088b21ee6565d1e5f85",
+        "cal": "3888ed0ddc33ffc8931ca272e0e910c575eea372bad3f435a6ec3236815a2d8c",
+        "test": "9dc86d60d525f96f0fcb9ce57397c7a4f88724963c28bbe48c953d54759ea23a"
+      }
+    },
+    "DINOv3_frozen_dense": {
+      "CAL": {
+        "rows": 225,
+        "bit_exact": true,
+        "max_abs_score_difference": 0.0
+      },
+      "TEST": {
+        "rows": 852,
+        "bit_exact": true,
+        "max_abs_score_difference": 0.0
+      },
+      "phase_receipt_sha256": {
+        "fit": "56e67cbccf254b4e55b78710088c9255268592f3979de062579e3cea65885976",
+        "cal": "e3954f7b906e5b3781bf0449a4a9a2e04a0686bb88e1409eab0e85e3f3c384f0",
+        "test": "907a978746fe46376f0f7f9d10b4e37d18d24866a46896e52ffcf31f0d37ef1a"
+      }
+    },
+    "FLiD_text_shared_regions": {
+      "CAL": {
+        "rows": 225,
+        "bit_exact": true,
+        "max_abs_score_difference": 0.0
+      },
+      "TEST": {
+        "rows": 852,
+        "bit_exact": true,
+        "max_abs_score_difference": 0.0
+      },
+      "phase_receipt_sha256": {
+        "fit": "b5fe296dc54082b6b6fcf6d97c0c2faa9ff4d49ef4c3c64639b7340de92dcd39",
+        "cal": "2e815e1a0a48f03a81874489c3488178916790ffae9ce48bd8970dc14f5ba967",
+        "test": "2fcf91cb2ed602f3dec6a3669f530252f6fcf2e6806a65260c71870900339251"
+      }
+    },
+    "GLOBAL_ONLY": {
+      "CAL": {
+        "rows": 225,
+        "bit_exact": true,
+        "max_abs_score_difference": 0.0
+      },
+      "TEST": {
+        "rows": 852,
+        "bit_exact": true,
+        "max_abs_score_difference": 0.0
+      },
+      "phase_receipt_sha256": {
+        "fit": "acbb7a4e67833c11c3540fdb9b7d1616b29713f2351f795b3dd9fa00d68afe25",
+        "cal": "33a7155bd5e49cebee88b5ea11d1b95188b114b992ac9a8f2359f4a6c752dbcf",
+        "test": "58be184d1c2f64701e80a803285e275cb985fd055695f22d9b7d0653735b37cc"
+      }
+    },
+    "FROZEN_SHARED_CORE": {
+      "CAL": {
+        "rows": 225,
+        "bit_exact": false,
+        "max_abs_score_difference": 1.676450529330964e-05
+      },
+      "TEST": {
+        "rows": 852,
+        "bit_exact": false,
+        "max_abs_score_difference": 1.9490384942422168e-05
+      },
+      "phase_receipt_sha256": {
+        "fit": "e6c18b51e8f14173715510eff6d12483335db98553cd60c3c1798fdf3638ac88",
+        "cal": "15d22d0ebeaf6c489b360fe6c5cf30638268dbdb19e101ef5167df10f203296d",
+        "test": "cf27b419c9996f05eceb167f32e2ae78eaa30c41d1b1c3eaec2e3c202f5121a3"
+      }
+    }
+  },
+  "aggregate": {
+    "mean_fnr_values_checked": 36,
+    "paired_interval_endpoints_checked": 60,
+    "bootstrap_replicates": 5000,
+    "maximum_difference_pp": 0.0
+  },
+  "archived_run_comparison_sha256": "4eda5f844eeb06ad53dc63da0d24f4374f95d85a93f3d9710845950253fffba1",
+  "archived_run_environment_sha256": "0bc18b6744c5160d9dd96ac5b3a5faf4da29dc47d11f45591e7b3a1b2bfbe52a",
+  "audit_numpy": "2.4.4",
+  "audit_pillow": "12.2.0",
+  "auditor_sha256": "97a1388fba19414d1b4ed6aeeaf99184dba0d028e8d0adeb7a44639af861bee8",
+  "scope": "Independent CPU audit of the completed isolated Windows CUDA raw-image run."
+}

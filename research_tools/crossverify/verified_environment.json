@@ -1,0 +1,45 @@
+{
+  "python": "3.14.4",
+  "operating_system": "Windows-11-10.0.26200-SP0",
+  "packages": {
+    "numpy": "2.4.4",
+    "Pillow": "12.2.0",
+    "torch": "2.13.0+cu130",
+    "torchvision": "0.28.0+cu130",
+    "timm": "1.0.31",
+    "scikit-learn": "1.9.0",
+    "diffusers": "0.39.0",
+    "transformers": "5.13.1"
+  },
+  "cuda": "13.0",
+  "cudnn": 92000,
+  "gpu": "NVIDIA GeForce RTX 5070 Ti",
+  "methods": [
+    "NRSW",
+    "CrossVerify_ResNet18",
+    "DINOv3_frozen_dense",
+    "FLiD_text_shared_regions",
+    "GLOBAL_ONLY",
+    "FROZEN_SHARED_CORE"
+  ],
+  "r62_sha256": "c5cbbd107a9774fd604eb311a59c7d87184d8e5b68a70569655ea21313f6b9d1",
+  "design_sha256": "4a10650472d1d08e663a26726808fcd7553ab87fa3fcfbb77c45ebc9b058824c",
+  "source_sha256": {
+    "assemble_dataset.py": "10f2c1e7aef424f65e654a190fb5219c7183322b8e32563f6136ffa4530eb688",
+    "build_design.py": "9cc883a703aa4d9c8f4cfd5ceb256e1192670cd2915743b1fd308b9286d308d5",
+    "build_layout_design.py": "e1896864c384b0933be8783f83901d057344947f7014c1d43375d6d9bb2f2d4f",
+    "compare.py": "6a2a5488b1bcf46b2813cf807a563a92d86bdc2694644498c9b81949c59002cb",
+    "download_inputs.py": "b2096fd002b56a2701c624c7e1d75905dce0fe5777da7fdb1d6a33cf4f599f57",
+    "full_layout.py": "49ecc59db1063a48b6573b9e2b645aa2a0e99920ed563c98ab2ddd2ea5be0f3a",
+    "inputs.py": "7033ea032b75a10a30d25fc3fe7d33223eda74d9dcaa5b95ca12f8dfb758cfed",
+    "layout_compare.py": "6f87ddaa3fbbac537a4316d09fd231c28ac8b20ec906e6217c00e588ba6d4b42",
+    "layout_features.py": "1c6d0161bfafcb009a78fbc8c37079ddaf3400379504dab8ac13f824554405ce",
+    "layout_fit.py": "6e02002a0f6736e680416a122281c91d256daf60600d9a1b6e8475aade909549",
+    "layout_flid.py": "20dcdbcc06aa97970181ed017011788d44b9ca33884ee7d730870aa783c02139",
+    "measure.py": "f345dc91592da1ae20abfead8326a117239144413ef05584c6d72b10a09e8bd7",
+    "neural.py": "dca5adfb5f436d6d1e363f9d01658a0c37b4f2741d694edc95a31f6cebe6b12f",
+    "publisher.py": "a19665c9f6281e4bb6864bd0a869ec91e7d43dd2b74af28453dcc3dcc661f997",
+    "refit.py": "879a4fd1dde5dd22314ea662f2d31ece771c64c4ff0dfb4530aeddf49db99ab3",
+    "run.py": "6b72aaf07cb31f6977f745b878995d4a7d81c1e998fe41b88ffc62dee1dc0989"
+  }
+}
