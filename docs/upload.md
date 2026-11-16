@@ -2,6 +2,8 @@
 
 The demo can run NRSW on a JPEG or PNG when it is connected to an inference service. It starts with one registered layout, the Slovak ID card layout used by the [IDSpace examples](datasets.md). Use an image of the front of the card with the whole card and its fields visible. The detector expects the known layout and requires successful field registration before reporting scores.
 
+On the [public demo](https://riverhor.github.io/nrsw/#upload), **Try a random sample** sends one of the six bundled synthetic IDSpace images to the same inference service used for uploads. You can see the new prediction without choosing a file.
+
 ## Start on your computer
 
 Follow [the training guide](training.md#worked-idspace-image-example) to prepare the Slovak ID layout and train an image detector. To use all three 1%, 5% and 10% false-positive rate targets, pass `--calibration 500` to `examples/tutorial_idspace.py` and `--fpr 0.01 0.05 0.10` to `nrsw fit-images`. Set aside 500 independent unaltered calibration images. Uploads use this fit's scores and thresholds. The built-in examples show the paper's saved predictions.

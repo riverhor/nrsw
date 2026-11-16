@@ -6,7 +6,7 @@
 
 ## 在线演示
 
-打开[简体中文演示](https://riverhor.github.io/nrsw/?lang=zh-CN)，试用 [IDSpace](docs/datasets.md) 的未篡改和已篡改文件图像。样本身份为虚构。选择图像后，可以查看各字段的权重、伪造分数，以及按校准阈值作出的判断。演示使用模型预先计算的结果。检测自己的图像时，可使用下方的 Python 软件包命令。
+打开[简体中文演示](https://riverhor.github.io/nrsw/?lang=zh-CN#upload)，点击随机样本按钮，即可用在线模型检测一张 [IDSpace](docs/datasets.md) 的斯洛伐克身份证合成图像，也可以上传同版式的图像。结果会显示字段权重、伪造分数和复核判断。示例区可以查看未篡改和已篡改配对的已保存结果。
 
 要在本地打开演示，请从项目目录运行以下命令。建议使用 Python 3.11 或更新版本的虚拟环境。
 
@@ -17,7 +17,7 @@ nrsw serve
 
 在浏览器中打开 [localhost:8000](http://127.0.0.1:8000/?lang=zh-CN)。也可以运行 `nrsw demo --output runs/example`，用合成特征训练一个小型示例模型。
 
-要在浏览器中选择自己的图像并实时检测，请按照[上传指南](docs/upload.md)在本地加载已登记的检测器。
+要在本地演示中实时检测，请按照[上传指南](docs/upload.md)加载已登记的检测器。
 
 ## 用自己的图像训练
 

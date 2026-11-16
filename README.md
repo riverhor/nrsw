@@ -6,7 +6,7 @@ NRSW (Normal-Referenced Spectral Weighting) detects signs of tampering in docume
 
 ## Try the demo
 
-Open the [browser demo](https://riverhor.github.io/nrsw/) to try unaltered and altered document images from [IDSpace](docs/datasets.md). The examples use fictional identities. Select an image to see its field weights, forgery score, and decision at a threshold calibrated on unaltered documents. The demo shows predictions computed in advance. To check your own images, use the package's image commands below.
+Open the [browser demo](https://riverhor.github.io/nrsw/#upload) and choose **Try a random sample** to run the hosted detector on a synthetic Slovak ID image from [IDSpace](docs/datasets.md). You can also upload an image of the same layout. The results show field weights, the forgery score, and the review decision. The example gallery has saved predictions for the unaltered and edited pairs.
 
 To open the demo locally, install from this directory in a Python 3.11+ virtual environment.
 
@@ -17,7 +17,7 @@ nrsw serve
 
 Open [localhost:8000](http://127.0.0.1:8000). You can also train a small example model on simulated features with `nrsw demo --output runs/example`.
 
-To score your own image directly from the browser, [start the demo with a registered detector](docs/upload.md).
+To enable uploads in your local copy, [start the demo with a registered detector](docs/upload.md).
 
 ## Reproduce the paper
 
