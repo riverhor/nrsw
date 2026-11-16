@@ -42,3 +42,5 @@ nrsw export-demo --output site --upload-api https://inference.example.org
 ```
 
 For the repository's GitHub Pages workflow, set `NRSW_UPLOAD_API` to that HTTPS base URL as a repository Actions variable before running **Demo on GitHub Pages**. The upload control appears once the browser can reach the service. Without a configured HTTPS endpoint, the public page continues to show the built-in image examples.
+
+For a [Hugging Face ZeroGPU Space](../deploy/space/README.md), use the Space's direct `https://…hf.space` address as `NRSW_UPLOAD_API`. The page uses the Space's Gradio queue and tells users where the image will be processed.

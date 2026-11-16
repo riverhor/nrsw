@@ -101,6 +101,9 @@ def test_routes_own_geometry_model_and_cut_with_one_encoder_pair(routes, capsys)
         with pytest.raises(ValueError, match="no threshold"):
             detector.predict_image("card-v1", "does-not-exist", fpr="0.05")
         assert not calls
+        detector.prepare("card-v1")
+        detector.prepare("pass-v2")
+        assert calls == {"mobile_instances": 1, "sd_instances": 1}
         a = detector.predict_image("card-v1", image, identifier="new-card")
         b = detector.predict_image("pass-v2", image, identifier="new-pass")
         assert a["layout"] == "card-v1" and a["threshold"]["threshold"] == 30
@@ -112,6 +115,8 @@ def test_routes_own_geometry_model_and_cut_with_one_encoder_pair(routes, capsys)
     assert calls["sd_closed"] == 1
     with pytest.raises(RuntimeError, match="closed"):
         detector.predict_image("card-v1", image)
+    with pytest.raises(RuntimeError, match="closed"):
+        detector.prepare("card-v1")
 
     common = ["--registry", str(config), "--image", str(image), "--device", "cpu"]
     assert main(["route", "--layout-id", "legacy", *common]) == 2
@@ -137,6 +142,8 @@ def test_changed_geometry_rejected_before_any_forward(routes):
     changed["quads"]["first"] = changed["quads"]["second"]
     write_json(layout_path, changed)
     with LayoutRegistry.from_file(config, device="cpu") as detector:
+        with pytest.raises(ValueError, match="geometry or encoder settings differ from training"):
+            detector.prepare("card-v1")
         with pytest.raises(ValueError, match="geometry or encoder settings differ from training"):
             detector.predict_image("card-v1", image)
         assert calls["sd_forwards"] == 0

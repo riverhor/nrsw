@@ -141,14 +141,18 @@ def demo_html(html, upload_api):
     """Attach an HTTPS inference service to the static demo."""
     if upload_api is None:
         return html
+    transport = ""
     if upload_api != ".":
         url = urlsplit(upload_api)
         if (url.scheme != "https" or not url.hostname or url.username is not None
                 or url.password is not None or url.query or url.fragment):
             raise ValueError("The upload service URL must be an HTTPS base URL")
+        if url.hostname.endswith(".hf.space"):
+            transport = ' data-transport="gradio"'
     if UPLOAD_META not in html:
         raise ValueError("Demo upload configuration is missing")
-    return html.replace(UPLOAD_META, f'<meta name="nrsw-prediction-api" content="{escape(upload_api, quote=True)}">', 1)
+    tag = f'<meta name="nrsw-prediction-api" content="{escape(upload_api, quote=True)}"{transport}>'
+    return html.replace(UPLOAD_META, tag, 1)
 
 
 def export_demo(output, *, upload_api=None):

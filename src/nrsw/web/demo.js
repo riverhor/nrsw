@@ -435,14 +435,17 @@ function isLoopback(host) {
 }
 
 function predictionApi() {
-  const configured = document.querySelector('meta[name="nrsw-prediction-api"]').content.trim();
+  const settings = document.querySelector('meta[name="nrsw-prediction-api"]');
+  const configured = settings.content.trim();
   if (!configured && !isLoopback(location.hostname)) return;
   try {
-    const api = new URL(configured || ".", location.href);
-    const loopback = api.origin === location.origin && api.protocol === "http:" && isLoopback(api.hostname);
-    if ((!loopback && api.protocol !== "https:") || api.username || api.password || api.search || api.hash) return;
-    if (!api.pathname.endsWith("/")) api.pathname += "/";
-    return api;
+    const base = new URL(configured || ".", location.href);
+    const loopback = base.origin === location.origin && base.protocol === "http:" && isLoopback(base.hostname);
+    if ((!loopback && base.protocol !== "https:") || base.username || base.password || base.search || base.hash) return;
+    const gradio = settings.dataset.transport === "gradio";
+    if (gradio && !base.hostname.endsWith(".hf.space")) return;
+    if (!base.pathname.endsWith("/")) base.pathname += "/";
+    return { base, gradio };
   } catch {
     return;
   }
@@ -463,6 +466,8 @@ uploadFile.addEventListener("change", () => {
 
 const uploadTypes = { "image/jpeg": "JPEG", "image/png": "PNG" };
 const uploadRequest = { credentials: "omit", redirect: "error", referrerPolicy: "no-referrer" };
+const maxUploadBytes = 8 * 1024 * 1024;
+const maxEventStreamBytes = 128 * 1024;
 const predictionErrors = {
   invalid_image: "The image could not be read. Choose a clear JPEG or PNG.",
   alignment_failed: "The card could not be aligned. Use a clear, complete image of the supported layout.",
@@ -473,6 +478,81 @@ const predictionErrors = {
   unsupported_type: "Choose one of the supported image formats.",
   server_error: "Detection failed. Try again shortly."
 };
+
+function predictionError(data, status) {
+  if (Object.hasOwn(predictionErrors, data?.error)) return predictionErrors[data.error];
+  if (status === 413) return predictionErrors.too_large;
+  if (status === 429) return predictionErrors.busy;
+  if (status === 502 || status === 503) return predictionErrors.unavailable;
+  return predictionErrors.server_error;
+}
+
+async function gradioOutput(response) {
+  verify(response.body && response.headers.get("Content-Type")?.includes("text/event-stream"), predictionErrors.unavailable);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let remainder = "";
+  let received = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      verify(received <= maxEventStreamBytes, predictionErrors.server_error);
+      remainder += decoder.decode(value, { stream: true });
+      let separator;
+      while ((separator = remainder.match(/\r?\n\r?\n/))) {
+        const lines = remainder.slice(0, separator.index).split(/\r?\n/);
+        remainder = remainder.slice(separator.index + separator[0].length);
+        const event = lines.find((line) => line.startsWith("event:"))?.slice(6).trim();
+        if (event === "error" || event === "unexpected_error") throw new Error(t(predictionErrors.server_error));
+        if (event !== "complete") continue;
+        const payload = lines.filter((line) => line.startsWith("data:")).map((line) => line.slice(5).replace(/^ /, "")).join("\n");
+        const outputs = JSON.parse(payload);
+        verify(Array.isArray(outputs) && outputs.length === 1, predictionErrors.server_error);
+        return outputs[0];
+      }
+    }
+    throw new Error(t(predictionErrors.unavailable));
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+}
+
+async function gradioCall(base, endpoint, inputs, signal) {
+  const url = new URL(`gradio_api/call/${endpoint}`, base);
+  const posted = await fetch(url, { ...uploadRequest, method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: inputs }), signal });
+  const result = await posted.json().catch(() => null);
+  verify(posted.ok, predictionError(result, posted.status));
+  verify(typeof result?.event_id === "string" && /^[a-zA-Z0-9_-]{1,128}$/.test(result.event_id), predictionErrors.server_error);
+  const completed = await fetch(`${url.href}/${result.event_id}`, { ...uploadRequest, signal });
+  verify(completed.ok, predictionError(null, completed.status));
+  return gradioOutput(completed);
+}
+
+function base64Image(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",", 2)[1]);
+    reader.onerror = () => reject(new Error(t(predictionErrors.invalid_image)));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function requestPrediction(api, file, type, fpr, signal) {
+  if (api.gradio) {
+    const encoded = await base64Image(file);
+    signal.throwIfAborted();
+    return gradioCall(api.base, "predict", [encoded, type, fpr], signal);
+  }
+  const url = new URL("api/predict", api.base);
+  url.searchParams.set("fpr", fpr);
+  const response = await fetch(url, { ...uploadRequest, method: "POST", headers: { "Content-Type": type }, body: file, signal });
+  const result = await response.json().catch(() => null);
+  verify(response.ok, predictionError(result, response.status));
+  return result;
+}
 
 async function imageType(file) {
   const bytes = new Uint8Array(await file.slice(0, 8).arrayBuffer());
@@ -490,19 +570,16 @@ async function submitImage(api, status) {
   updateUploadForm();
   uploadStatus("Measuring the image…");
   try {
-    verify(file.size <= status.max_bytes, predictionErrors.too_large);
+    verify(file.size <= Math.min(status.max_bytes, maxUploadBytes), predictionErrors.too_large);
     const type = await imageType(file);
     if (pendingUpload !== controller) return;
     verify(status.supported_types.includes(type), predictionErrors.unsupported_type);
     const currentFpr = trace && currentCut()?.fpr;
     const fpr = status.fprs.find((value) => value === currentFpr) ?? status.fprs[0];
-    const url = new URL("api/predict", api);
-    url.searchParams.set("fpr", fpr);
-    const response = await fetch(url, { ...uploadRequest, method: "POST", headers: { "Content-Type": type }, body: file, signal: controller.signal });
-    const data = await response.json().catch(() => null);
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(240000)]);
+    const data = await requestPrediction(api, file, type, fpr, signal);
     if (pendingUpload !== controller) return;
-    const message = Object.hasOwn(predictionErrors, data?.error) ? predictionErrors[data.error] : predictionErrors.server_error;
-    verify(response.ok, message);
+    verify(!data?.error, predictionError(data));
     verify(data?.dataset === "custom" && data.layout === status.layout && data.examples?.length === 1 &&
       Array.isArray(data.examples[0].weights), "The server did not return a compatible prediction.");
     const prediction = validate(data);
@@ -513,7 +590,11 @@ async function submitImage(api, status) {
     uploadStatus("Detection complete.");
     byId("demo-title").focus();
   } catch (error) {
-    if (pendingUpload === controller) uploadStatus(error instanceof TypeError ? "Could not reach the detection server." : error.message, true);
+    if (pendingUpload === controller) {
+      const messages = { TypeError: "Could not reach the detection server.", TimeoutError: "The detector took too long to respond.",
+        SyntaxError: predictionErrors.server_error };
+      uploadStatus(Object.hasOwn(messages, error.name) ? messages[error.name] : error.message, true);
+    }
   } finally {
     if (pendingUpload === controller) {
       pendingUpload = undefined;
@@ -525,29 +606,48 @@ async function submitImage(api, status) {
 async function enableUpload() {
   const api = predictionApi();
   if (!api) return;
+  const retry = byId("upload-retry");
+  const unavailable = byId("upload-unavailable");
+  retry.hidden = true;
   try {
-    const response = await fetch(new URL("api/status", api), { ...uploadRequest, cache: "no-store", signal: AbortSignal.timeout(5000) });
-    if (!response.ok) return;
-    const status = await response.json();
+    let status;
+    if (api.gradio) {
+      unavailable.hidden = true;
+      uploadStatus("Connecting to the Hugging Face detector…");
+      status = await gradioCall(api.base, "status", [], AbortSignal.timeout(45000));
+    } else {
+      const response = await fetch(new URL("api/status", api.base), { ...uploadRequest, cache: "no-store", signal: AbortSignal.timeout(5000) });
+      if (!response.ok) return;
+      status = await response.json();
+    }
     const types = status?.supported_types;
-    if (typeof status?.layout !== "string" || !Number.isInteger(status.max_bytes) || status.max_bytes <= 0 ||
-        !Array.isArray(types) || !types.length || !types.every((type) => Object.hasOwn(uploadTypes, type)) ||
-        !Array.isArray(status.fprs) || !status.fprs.length || !status.fprs.every((fpr) => Number.isFinite(fpr) && fpr > 0 && fpr < 1)) return;
+    verify(typeof status?.layout === "string" && Number.isInteger(status.max_bytes) && status.max_bytes > 0 &&
+      Array.isArray(types) && types.length && types.every((type) => Object.hasOwn(uploadTypes, type)) &&
+      Array.isArray(status.fprs) && status.fprs.length && status.fprs.every((fpr) => Number.isFinite(fpr) && fpr > 0 && fpr < 1), predictionErrors.unavailable);
     uploadFile.accept = types.join(",");
-    const size = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(status.max_bytes / (1024 * 1024));
+    const size = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(Math.min(status.max_bytes, maxUploadBytes) / (1024 * 1024));
     byId("upload-size").textContent = t("{formats} · up to {limit} MiB").replace("{formats}", types.map((type) => uploadTypes[type]).join(" / ")).replace("{limit}", size);
     if (!slovakLayouts.has(status.layout)) byId("upload-layout").textContent = t("Registered layout {layout}").replace("{layout}", status.layout);
-    byId("upload-remote").hidden = isLoopback(api.hostname);
-    byId("upload-unavailable").hidden = true;
+    const disclosure = byId("upload-remote");
+    disclosure.hidden = isLoopback(api.base.hostname);
+    if (api.gradio) disclosure.textContent = t("Your image is sent to Hugging Face for processing when you run detection.");
+    unavailable.hidden = true;
     uploadForm.hidden = false;
+    uploadStatus("");
     uploadForm.addEventListener("submit", (event) => {
       event.preventDefault();
       submitImage(api, status);
     });
   } catch {
-    // Keep the local setup guide visible if the inference server is unavailable.
+    if (api.gradio) {
+      unavailable.hidden = false;
+      retry.hidden = false;
+      uploadStatus(predictionErrors.unavailable, true);
+    }
   }
 }
+
+byId("upload-retry").addEventListener("click", enableUpload);
 
 traceFile.addEventListener("change", async () => {
   const [file] = traceFile.files;

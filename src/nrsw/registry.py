@@ -100,12 +100,24 @@ class LayoutRegistry:
             raise UnknownLayoutError(f"unknown layout ID {layout_id!r}; configured IDs: {known}")
         return self._routes[layout_id]
 
-    def _describe(self, route, row, **options):
+    def _extractor_for(self, route):
         if self._encoders is None:
             self._encoders = ImageEncoders(**self._encoder_options)
         extractor = self._encoders.contract(route.registrar, _geometry_contract(route.registrar))
         if extractor_identity(extractor) != route.model.layout.extractor_id:
             raise ValueError(f"layout {route.model.layout.layout_id!r} geometry or encoder settings differ from training")
+        return extractor
+
+    def prepare(self, layout_id):
+        """Load the shared encoders and check the layout contract without scoring an image."""
+        route = self._route(layout_id)
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("layout registry is closed")
+            self._extractor_for(route)
+
+    def _describe(self, route, row, **options):
+        extractor = self._extractor_for(route)
         if isinstance(route.model, FieldClassifierModel):
             options["field_classifiers"] = True
         return describe_rows([row], route.registrar, self._encoders, extractor, **options)
