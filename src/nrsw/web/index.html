@@ -42,14 +42,14 @@
 
     <section id="upload" class="upload workbench" aria-labelledby="upload-title">
       <div>
-        <h2 id="upload-title" data-translate>Run a live check</h2>
+        <h2 id="upload-title" data-translate>Check your own document</h2>
         <p id="upload-layout" data-translate>Use a clear image of the entire front of the Slovak identity card shown in this demo.</p>
       </div>
+      <button id="upload-random" class="quiet-button" type="button" hidden data-translate>Try a random sample</button>
       <p id="upload-unavailable" data-translate>Live detection is unavailable here. Follow the local setup guide to check your own image.</p>
       <button id="upload-retry" class="quiet-button" type="button" hidden data-translate>Connect again</button>
       <form id="upload-form" hidden>
         <div class="upload-controls">
-          <button id="upload-random" class="quiet-button" type="button" hidden data-translate>Try a random sample</button>
           <label class="file-label"><span data-translate>Choose image</span><input id="upload-file" type="file" accept="image/jpeg,image/png" aria-describedby="upload-size"></label>
           <span id="upload-name" data-translate>No image selected</span>
           <button id="upload-submit" class="upload-submit" type="submit" disabled data-translate>Run detection</button>

@@ -6,10 +6,10 @@ const documentSelect = byId("example-select");
 const thresholdSelect = byId("threshold-select");
 const traceFile = byId("trace-file");
 const restoreButton = byId("restore");
+const randomSampleButton = byId("upload-random");
 const uploadForm = byId("upload-form");
 const uploadFile = byId("upload-file");
 const uploadSubmit = byId("upload-submit");
-const uploadRandom = byId("upload-random");
 const numberFormat = new Intl.NumberFormat(locale, { maximumSignificantDigits: 8 });
 const integerFormat = new Intl.NumberFormat(locale);
 const percentFormat = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 4 });
@@ -24,8 +24,9 @@ const builtIn = new Map();
 
 let defaultSource;
 let trace;
-let preview;
+let previewUrl;
 let pendingUpload;
+let lastRandomSample;
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -164,21 +165,20 @@ function showFitSummary() {
   byId("fit-summary").hidden = !hasCount;
 }
 
-function useTrace(data, imported = false, imagePreview) {
-  if (preview) URL.revokeObjectURL(preview.url);
-  preview = imagePreview;
+function useTrace(data, imported = false, imageUrl) {
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = imageUrl;
   trace = data;
   restoreButton.hidden = !(defaultSource && imported);
   byId("source-control").hidden = imported || builtIn.size < 2;
   if (!imported) sourceSelect.value = data.dataset;
-  const liveLabel = preview?.sample ? "Live sample prediction" : "Uploaded document";
-  byId("source-label").textContent = t(preview ? liveLabel : imported ? "Opened prediction file" : sourceNames[data.dataset]);
-  byId("dataset-scope").textContent = t(preview ? "NRSW measured this image. Select a target false-positive rate to see its decision." : {
+  byId("source-label").textContent = t(imageUrl ? "Uploaded document" : imported ? "Opened prediction file" : sourceNames[data.dataset]);
+  byId("dataset-scope").textContent = t(imageUrl ? "NRSW measured this image. Select a target false-positive rate to see its decision." : {
     specimen: "Choose a document image to inspect its saved NRSW prediction.",
     synthetic: "These predictions use simulated features. The illustrations show the fields they represent.",
     custom: "These scores come from a locally trained detector."
   }[data.dataset]);
-  documentSelect.replaceChildren(...data.examples.map((sample, i) => option(i, titleOf(preview?.sample ?? sample))));
+  documentSelect.replaceChildren(...data.examples.map((sample, i) => option(i, titleOf(sample))));
   const savedSample = data.examples.findIndex((sample) => sample.id === data.selected_id);
   const firstEdit = data.examples.findIndex((sample) => data.dataset === "synthetic" ? sample.id === "number-edit" : sample.label === "forged");
   documentSelect.value = [savedSample, firstEdit, 0].find((index) => index >= 0);
@@ -327,10 +327,7 @@ function showSpecimen(sample) {
     const counterpart = trace.examples[match];
     images.append(specimenImage(counterpart, counterpart.label === "genuine" ? "Matching unaltered image" : "Matching altered image", match));
   }
-  showSpecimenFacts(sample, trace.source);
-}
 
-function showSpecimenFacts(sample, source) {
   const facts = byId("specimen-facts");
   facts.replaceChildren(element("dt", t("Dataset label")), element("dd", t(sample.label === "genuine" ? "Unaltered" : "Altered")));
   if (sample.edited_fields?.length) {
@@ -338,6 +335,7 @@ function showSpecimenFacts(sample, source) {
   }
 
   const credit = byId("document-credit");
+  const source = trace.source;
   credit.hidden = !source || typeof source.name !== "string";
   if (!credit.hidden) {
     credit.replaceChildren(httpsLink(source.name, source.url));
@@ -349,7 +347,7 @@ function showDocument() {
   const sample = currentSample();
   const synthetic = trace.dataset === "synthetic";
   const specimen = trace.dataset === "specimen";
-  const hasImage = specimen || Boolean(preview);
+  const hasImage = specimen || previewUrl;
   const label = byId("image-scope");
   label.hidden = !synthetic && !hasImage;
   const layoutName = slovakLayouts.has(trace.layout) ? "Slovak identity-card layout" : "Source images";
@@ -357,7 +355,7 @@ function showDocument() {
   byId("illustrations").hidden = !synthetic;
   byId("specimen-documents").hidden = !hasImage;
   if (!hasImage) byId("specimen-documents").replaceChildren();
-  byId("specimen-facts").hidden = !specimen && !preview?.sample;
+  byId("specimen-facts").hidden = !specimen;
   byId("custom-document").hidden = synthetic || hasImage;
   byId("document-credit").hidden = true;
   if (synthetic) {
@@ -370,17 +368,10 @@ function showDocument() {
     byId("candidate-caption").textContent = titleOf(sample);
   } else if (specimen) {
     showSpecimen(sample);
-  } else if (preview) {
+  } else if (previewUrl) {
     const images = byId("specimen-documents");
     images.classList.remove("paired");
-    const caption = preview.sample ? "Public demo sample" : "Uploaded document";
-    const image = { ...sample, image: preview.url };
-    if (preview.sample) {
-      image.title = preview.sample.title;
-      image.title_zh = preview.sample.title_zh;
-    }
-    images.replaceChildren(specimenImage(image, caption));
-    if (preview.sample) showSpecimenFacts(preview.sample, builtIn.get("specimen").source);
+    images.replaceChildren(specimenImage({ ...sample, image: previewUrl }, "Uploaded document"));
   } else {
     const title = element("strong", titleOf(sample));
     byId("custom-document").replaceChildren(title);
@@ -418,6 +409,26 @@ function showDecision() {
   decision.closest(".decision").classList.toggle("review", review);
   byId("score-value").textContent = numberFormat.format(sample.score);
   byId("threshold-value").textContent = hasCut ? numberFormat.format(threshold) : t("Unavailable");
+}
+
+function showRandomSample() {
+  const specimen = builtIn.get("specimen");
+  if (!specimen) return;
+  if (pendingUpload) cancelUpload();
+  const visibleSample = trace === specimen ? currentSample() : undefined;
+  const choices = specimen.examples.filter((sample) => sample !== visibleSample && sample !== lastRandomSample);
+  const pool = choices.length ? choices : specimen.examples.filter((sample) => sample !== visibleSample);
+  const sample = pool[Math.floor(Math.random() * pool.length)] ?? specimen.examples[0];
+  lastRandomSample = sample;
+
+  const fpr = trace && currentCut()?.fpr;
+  if (trace !== specimen) useTrace(specimen);
+  const cut = specimen.thresholds.findIndex((entry) => entry.fpr === fpr);
+  if (cut >= 0) thresholdSelect.value = cut;
+  documentSelect.value = specimen.examples.indexOf(sample);
+  byId("source-label").textContent = t("Saved sample prediction");
+  showDocument();
+  byId("demo-title").focus();
 }
 
 function downloadPrediction() {
@@ -465,16 +476,17 @@ function predictionApi() {
 function updateUploadForm() {
   byId("upload-name").textContent = uploadFile.files[0]?.name ?? t("No image selected");
   uploadSubmit.disabled = !uploadFile.files.length || Boolean(pendingUpload);
-  uploadRandom.disabled = Boolean(pendingUpload);
   uploadForm.setAttribute("aria-busy", String(Boolean(pendingUpload)));
 }
 
-uploadFile.addEventListener("change", () => {
+function cancelUpload() {
   pendingUpload?.abort();
   pendingUpload = undefined;
   uploadStatus("");
   updateUploadForm();
-});
+}
+
+uploadFile.addEventListener("change", cancelUpload);
 
 const uploadTypes = { "image/jpeg": "JPEG", "image/png": "PNG" };
 const uploadRequest = { credentials: "omit", redirect: "error", referrerPolicy: "no-referrer" };
@@ -574,39 +586,22 @@ async function imageType(file) {
   return "";
 }
 
-async function loadDemoSample(sample, limit, signal) {
-  const message = "The demo sample could not be loaded.";
-  const response = await fetch(sample.image, { ...uploadRequest, mode: "same-origin", signal }).catch((error) => {
-    signal.throwIfAborted();
-    throw new Error(t(message), { cause: error });
-  });
-  verify(response.ok, message);
-  const image = await response.blob();
-  verify(image.size <= limit, predictionErrors.too_large);
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", await image.arrayBuffer()));
-  const hex = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  verify(hex === sample.image_sha256, message);
-  return image;
-}
-
-async function submitImage(api, status, { file, sample }) {
-  if ((!file && !sample) || pendingUpload) return;
+async function submitImage(api, status) {
+  const [file] = uploadFile.files;
+  if (!file || pendingUpload) return;
   const controller = new AbortController();
   pendingUpload = controller;
   updateUploadForm();
-  const currentFpr = trace && currentCut()?.fpr;
-  const fpr = status.fprs.includes(currentFpr) ? currentFpr : status.fprs[0];
+  uploadStatus("Measuring the image…");
   try {
-    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(240000)]);
-    const limit = Math.min(status.max_bytes, maxUploadBytes);
-    uploadStatus(sample ? "Loading a demo sample…" : "Measuring the image…");
-    const image = sample ? await loadDemoSample(sample, limit, signal) : file;
-    verify(image.size <= limit, predictionErrors.too_large);
-    const type = await imageType(image);
+    verify(file.size <= Math.min(status.max_bytes, maxUploadBytes), predictionErrors.too_large);
+    const type = await imageType(file);
     if (pendingUpload !== controller) return;
     verify(status.supported_types.includes(type), predictionErrors.unsupported_type);
-    uploadStatus("Measuring the image…");
-    const data = await requestPrediction(api, image, type, fpr, signal);
+    const currentFpr = trace && currentCut()?.fpr;
+    const fpr = status.fprs.find((value) => value === currentFpr) ?? status.fprs[0];
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(240000)]);
+    const data = await requestPrediction(api, file, type, fpr, signal);
     if (pendingUpload !== controller) return;
     verify(!data?.error, predictionError(data));
     verify(data?.dataset === "custom" && data.layout === status.layout && data.examples?.length === 1 &&
@@ -614,9 +609,8 @@ async function submitImage(api, status, { file, sample }) {
     const prediction = validate(data);
     verify(prediction.thresholds.some((cut) => cut.fpr === fpr && Number.isFinite(cut.threshold)),
       "The server did not return a compatible prediction.");
-    useTrace({ ...prediction, selected_fpr: fpr }, true,
-      { url: URL.createObjectURL(image.slice(0, image.size, type)), sample });
-    if (!sample) uploadFile.value = "";
+    useTrace({ ...prediction, selected_fpr: fpr }, true, URL.createObjectURL(file.slice(0, file.size, type)));
+    uploadFile.value = "";
     uploadStatus("Detection complete.");
     byId("demo-title").focus();
   } catch (error) {
@@ -666,22 +660,8 @@ async function enableUpload() {
     uploadStatus("");
     uploadForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      submitImage(api, status, { file: uploadFile.files[0] });
+      submitImage(api, status);
     });
-    if (slovakLayouts.has(status.layout) && types.includes("image/jpeg")) {
-      const samples = builtIn.get("specimen")?.examples.filter((sample) =>
-        /\.jpe?g$/i.test(sample.image) && /^[a-f0-9]{64}$/.test(sample.image_sha256)) ?? [];
-      if (samples.length) {
-        uploadRandom.hidden = false;
-        let previous;
-        uploadRandom.addEventListener("click", () => {
-          const choices = samples.length > 1 ? samples.filter((sample) => sample !== previous) : samples;
-          const sample = choices[Math.floor(Math.random() * choices.length)];
-          previous = sample;
-          submitImage(api, status, { sample });
-        });
-      }
-    }
   } catch {
     if (api.gradio) {
       unavailable.hidden = false;
@@ -707,6 +687,7 @@ traceFile.addEventListener("change", async () => {
   }
 });
 restoreButton.addEventListener("click", () => useTrace(builtIn.get(defaultSource)));
+randomSampleButton.addEventListener("click", showRandomSample);
 sourceSelect.addEventListener("change", () => useTrace(builtIn.get(sourceSelect.value)));
 documentSelect.addEventListener("change", showDocument);
 thresholdSelect.addEventListener("change", showDecision);
@@ -727,6 +708,7 @@ function loadExamples() {
     showStatus("Could not load examples. Open a prediction file or start the demo with nrsw serve.", true);
     return;
   }
+  randomSampleButton.hidden = !builtIn.has("specimen");
   sourceSelect.replaceChildren(...Array.from(builtIn.keys(), (source) => option(source, t(sourceNames[source]))));
   useTrace(builtIn.get(defaultSource));
 }
