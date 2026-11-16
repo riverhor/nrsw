@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 from hashlib import sha256
 import json
 
@@ -18,8 +18,8 @@ def test_export_keeps_the_scored_documents_and_their_predictions(tmp_path):
 
     fields = set(data["fields"])
     pairs = defaultdict(set)
-    formations = set()
-    edited_fields = set()
+    alterations = Counter()
+    same_tables = set()
     assert [point["fpr"] for point in data["thresholds"]] == [0.01, 0.05, 0.10]
     examples = {example["id"]: example for example in data["examples"]}
     assert len(examples) == len(data["examples"])
@@ -35,12 +35,30 @@ def test_export_keeps_the_scored_documents_and_their_predictions(tmp_path):
         assert set(example["edited_fields"]) <= fields
         assert bool(example["edited_fields"]) == (example["label"] == "forged")
         assert example["source_member"].split("/", 1)[0] == example["formation"]
+        if example["same_jpeg_tables"]:
+            same_tables.add(example["pair_id"])
         if example["label"] == "forged":
-            formations.add(example["formation"])
-            edited_fields.update(example["edited_fields"])
+            field, = example["edited_fields"]
+            alterations[example["formation"], field] += 1
         pairs[example["pair_id"]].add(example["label"])
-    assert len(pairs) >= 10
+    assert len(pairs) == 100
     assert len(examples) == 2 * len(pairs)
     assert all(labels == {"genuine", "forged"} for labels in pairs.values())
-    assert formations == {"fraud_crop_and_replace", "fraud_inpaint_and_rewrite"}
-    assert len(edited_fields) >= 4
+    assert len(same_tables) == 24
+    assert alterations == {
+        (method, field): 5 for method in ("fraud_crop_and_replace", "fraud_inpaint_and_rewrite")
+        for field in fields - {"face"}
+    }
+
+    evaluation = data["evaluation"]
+    assert (evaluation["genuine"], evaluation["forged"], evaluation["groups"]) == (1398, 2708, 353)
+    assert [method["id"] for method in evaluation["methods"]] == ["nrsw", "diagonal", "genuine", "concat"]
+    nrsw, diagonal, *_ = evaluation["methods"]
+    for method in evaluation["methods"]:
+        assert [rate["target"] for rate in method["rates"]] == [0.01, 0.05, 0.10]
+        assert all(0 <= rate[metric] <= 1 for rate in method["rates"] for metric in ("fnr", "fpr", "roc_fnr"))
+    assert [100 * (d["roc_fnr"] - n["roc_fnr"]) for n, d in zip(nrsw["rates"], diagonal["rates"], strict=True)] == (
+        pytest.approx([9.45, 4.50, 3.13], abs=0.01)
+    )
+    assert evaluation["study"]["images"] == 16210
+    assert evaluation["study"]["common_jpeg"] == pytest.approx([17.13, 10.53, 7.55], abs=0.01)

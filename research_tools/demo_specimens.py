@@ -13,12 +13,19 @@ import numpy as np
 from PIL import Image
 from threadpoolctl import threadpool_limits
 
+from .jpeg.statistics import metrics
 from .r62_svk import runtime_sources
 
 
 SPLIT = "f0_d3_o0"
 METHOD = "NRSW_COMMON_UNIT"
 TARGETS = (0.01, 0.05, 0.10)
+COMPARISONS = {
+    "nrsw": METHOD,
+    "diagonal": "TAG_DIAGONAL",
+    "genuine": "GENUINE_ENERGY",
+    "concat": "CONCAT_NO_EVIDENCE",
+}
 FIELD_LABELS = {
     "birthday": "Date of birth",
     "card_num": "Card number",
@@ -61,22 +68,15 @@ class Pair:
     genuine: str
     forged: str
     formation: str
+    same_jpeg_tables: bool
 
 
-# Select distinct edits from publisher annotations in the held-out split. Each
-# pair shares its JPEG quantization tables. Choices do not use detector scores.
-PAIRS = (
-    Pair("given_name", "12717", "2648", "fraud_crop_and_replace"),
-    Pair("card_num", "6523", "4834", "fraud_crop_and_replace"),
-    Pair("birthday", "8152", "1852", "fraud_crop_and_replace"),
-    Pair("surname", "548", "851", "fraud_crop_and_replace"),
-    Pair("personal_num", "2625", "12326", "fraud_inpaint_and_rewrite"),
-    Pair("expire_date", "11517", "2497", "fraud_inpaint_and_rewrite"),
-    Pair("issue_date", "7478", "4602", "fraud_inpaint_and_rewrite"),
-    Pair("issue_authority", "6871", "500", "fraud_crop_and_replace"),
-    Pair("gender", "9115", "11789", "fraud_inpaint_and_rewrite"),
-    Pair("country_code", "4680", "15151", "fraud_inpaint_and_rewrite"),
-)
+def example_pairs():
+    source = Path(__file__).with_name("demo_specimen_pairs.json")
+    selection = json.loads(source.read_bytes())
+    if selection["context"] != SPLIT:
+        raise ValueError("Specimen pairs must use the displayed held-out split")
+    return [Pair(*item) for item in selection["pairs"]]
 
 
 def prepared_model(work):
@@ -97,17 +97,70 @@ def prepared_model(work):
     if set(calibration.groups).intersection(test.groups):
         raise ValueError("Calibration and test must use separate document groups")
 
-    column = NATIVE_METHODS.index(METHOD)
     model, _ = fit_model(training, data.offset, crossed=False)
-    calibration_scores = model.score(calibration)[column]
-    thresholds = np.sort(calibration_scores)[np.asarray(RANKS) - 1]
+    calibration_scores = model.score(calibration)
+    cuts = np.sort(calibration_scores, axis=-1)[:, np.asarray(RANKS) - 1]
     with np.load(work / "all/refit/cal0.npz", allow_pickle=False) as archive:
         context = archive["contexts"].tolist().index(SPLIT)
         if archive["ids"].tolist() != list(calibration.ids):
             raise ValueError("Calibration document order differs from the paper run")
-        np.testing.assert_allclose(calibration_scores, archive["scores"][context, column], rtol=0, atol=1e-7)
-        np.testing.assert_allclose(thresholds, archive["cuts"][context, column], rtol=0, atol=1e-7)
-    return data, training, model, test, thresholds
+        columns = [model.methods.index(method) for method in NATIVE_METHODS]
+        np.testing.assert_allclose(calibration_scores, archive["scores"][context, columns], rtol=0, atol=1e-7)
+        np.testing.assert_allclose(cuts, archive["cuts"][context, columns], rtol=0, atol=1e-7)
+    return data, training, model, test, cuts
+
+
+def study_evidence(work):
+    original_path = work / "all/refit/RESULTS.json"
+    jpeg_root = work / "common-jpeg"
+    jpeg_path = jpeg_root / "refit/RESULTS.json"
+    verification_path = jpeg_root / "VERIFICATION.json"
+    if not all(path.is_file() for path in (original_path, jpeg_path, verification_path)):
+        return None
+
+    original = json.loads(original_path.read_bytes())
+    jpeg_data = jpeg_path.read_bytes()
+    jpeg = json.loads(jpeg_data)
+    verification = json.loads(verification_path.read_bytes())
+    if original["scope"] != "all_384_contexts" or jpeg["status"] != "COMPLETE":
+        raise ValueError("Expected the full original-image and common-JPEG studies")
+    if verification["status"] != "PASS_R62_PARITY" or verification["result_sha256"] != sha256(jpeg_data).hexdigest():
+        raise ValueError("Common-JPEG results must match the verified study")
+    if jpeg["metric_order"][1:4] != ["ROC_FNR_1", "ROC_FNR_5", "ROC_FNR_10"] or jpeg["targets"] != list(TARGETS):
+        raise ValueError("Unexpected common-JPEG ROC coordinates")
+    first, second = (jpeg["methods"].index(COMPARISONS[key]) for key in ("nrsw", "diagonal"))
+    jpeg_drop = np.subtract(jpeg["point"][second][1:4], jpeg["point"][first][1:4])
+    native_drop = -np.array(original["results"]["comparisons"][COMPARISONS["diagonal"]]["roc_FNR"]["point"])
+    return {
+        "images": 16210,
+        "native": (100 * native_drop).tolist(),
+        "common_jpeg": (100 * jpeg_drop).tolist(),
+    }
+
+
+def held_out_evaluation(work, labels, groups, scores, cuts, methods):
+    points, _ = metrics(labels, groups, scores, cuts)
+    witness_path = Path(__file__).with_name("svk_native_witness.json")
+    witness = json.loads(witness_path.read_bytes())
+    if witness["context"] != SPLIT or witness["scope"]["test"] != len(labels):
+        raise ValueError("Unexpected scope for the held-out result")
+    comparisons = []
+    for key, name in COMPARISONS.items():
+        _, roc_fnr, fpr, fnr = np.split(points[methods.index(name)], [1, 4, 7])
+        expected = witness["methods"][name]
+        np.testing.assert_allclose([roc_fnr, fpr, fnr], [expected[k] for k in ("roc_FNR", "own_cut_FPR", "own_cut_FNR")],
+                                   rtol=0, atol=2e-9)
+        comparisons.append({
+            "id": key,
+            "rates": [{"target": target, "fpr": float(real_fpr), "fnr": float(real_fnr), "roc_fnr": float(roc)}
+                      for target, real_fpr, real_fnr, roc in zip(TARGETS, fpr, fnr, roc_fnr, strict=True)],
+        })
+    result = {"genuine": int((labels == 0).sum()), "forged": int((labels == 1).sum()),
+              "groups": len(set(groups)), "methods": comparisons}
+    study = study_evidence(work)
+    if study is not None:
+        result["study"] = study
+    return result
 
 
 def image_boxes(matrices, fields, size):
@@ -141,16 +194,19 @@ def image_payload(images_root, row, fields):
 
 
 def bundle(work, output):
-    data, training, model, test, cuts = prepared_model(work)
+    data, training, model, test, all_cuts = prepared_model(work)
+    method_index = model.methods.index(METHOD)
+    cuts = all_cuts[method_index]
     fields = list(model.layout.fields)
     positions = {identity: index for index, identity in enumerate(test.ids)}
-    wanted = [identity for pair in PAIRS for identity in (pair.genuine, pair.forged)]
+    pairs = example_pairs()
+    wanted = [identity for pair in pairs for identity in (pair.genuine, pair.forged)]
     if len(set(wanted)) != len(wanted) or not set(wanted) <= positions.keys():
         raise ValueError("Example pairs must use distinct images from the reproduced test set")
     batch = test.subset(np.array([positions[identity] for identity in wanted]))
     if not batch.local_valid.all() or any(not data.documents[identity]["original_local_valid"] for identity in wanted):
         raise ValueError("Each example must have original field measurements")
-    scores = model.score(batch)[model.methods.index(METHOD)]
+    scores = model.score(batch)[method_index]
     full_teacher = model.routes[0][2].evidence
     evidence = full_teacher.evaluate(batch.local_features)
     weights = evidence["alpha"]
@@ -160,18 +216,23 @@ def bundle(work, output):
         context = archive["contexts"].tolist().index(SPLIT)
         if archive["ids"].tolist() != list(test.ids):
             raise ValueError("Test document order differs from the paper run")
-        archived_scores = archive["scores"][context, model.methods.index(METHOD), [positions[i] for i in wanted]]
+        labels = np.array([data.documents[identity]["label"] for identity in test.ids], dtype=np.uint8)
+        np.testing.assert_array_equal(labels, archive["labels"])
+        np.testing.assert_array_equal(test.groups, archive["groups"])
+        held_out_scores = archive["scores"][context, :len(model.methods)]
+        archived_scores = held_out_scores[method_index, [positions[i] for i in wanted]]
         np.testing.assert_allclose(scores, archived_scores, rtol=0, atol=1e-7)
         np.testing.assert_array_equal(scores[:, None] > cuts, archived_scores[:, None] > cuts)
+    evaluation = held_out_evaluation(work, labels, test.groups, held_out_scores, all_cuts, model.methods)
 
     rows = {data.documents[identity]["id"]: data.documents[identity] for identity in wanted}
-    if len({rows[pair.genuine]["group"] for pair in PAIRS}) != len(PAIRS):
+    if len({rows[pair.genuine]["group"] for pair in pairs}) != len(pairs):
         raise ValueError("Example pairs must use distinct source groups")
     plan = json.loads((work / "all/measurements/PLAN.json").read_text(encoding="utf-8"))
     plans = {row["id"]: row for row in plan["rows"] if row["id"] in rows}
     images = (work / "all/images").resolve(strict=True)
     examples, assets = [], {}
-    for number, pair in enumerate(PAIRS, start=1):
+    for number, pair in enumerate(pairs, start=1):
         source_row, edited_row = rows[pair.genuine], rows[pair.forged]
         if source_row["label"] != 0 or edited_row["label"] != 1 or source_row["group"] != edited_row["group"]:
             raise ValueError("A pair must use the publisher's original and edited image from one source group")
@@ -182,8 +243,8 @@ def bundle(work, output):
         method, method_zh, method_note, method_note_zh = EDIT_METHODS[pair.formation]
         image_rows = (plans[pair.genuine], plans[pair.forged])
         original, altered = (image_payload(images, row, fields) for row in image_rows)
-        if original[2] != altered[2]:
-            raise ValueError("Both images in this pair must share JPEG quantization settings")
+        if (original[2] == altered[2]) != pair.same_jpeg_tables:
+            raise ValueError("The pair's source JPEG quantization tables differ from the manifest")
         for label, row, (encoded, boxes, _) in zip(("genuine", "forged"), image_rows, (original, altered), strict=True):
             identifier = f"card-{number}-{label}"
             filename = f"{identifier}.jpg"
@@ -199,6 +260,7 @@ def bundle(work, output):
                 "note_zh": method_note_zh if is_forged else "这张合成证件是数据集中的未篡改原图。",
                 "label": label,
                 "formation": pair.formation if is_forged else "positive",
+                "same_jpeg_tables": pair.same_jpeg_tables,
                 "image": f"./specimens/{filename}",
                 "image_sha256": row["sha256"],
                 "source_member": row["member"],
@@ -215,11 +277,10 @@ def bundle(work, output):
         "layout_name_zh": "斯洛伐克身份证样本",
         "selected_id": "card-1-genuine",
         "selected_fpr": TARGETS[0],
-        "note": ("These are original test images from the IDSpace dataset, which uses synthetic identities "
-                 "and generated portraits. The displayed scores and field weights were computed from these exact "
-                 "images using NRSW. Scores are not probabilities."),
-        "note_zh": ("这些是 IDSpace 的原始测试图像，使用合成身份和生成的证件照片。"
-                    "NRSW 以页面显示的同一图像计算伪造分数和字段权重。分数不等于概率。"),
+        "note": ("These held-out images use synthetic identities and portraits from IDSpace. NRSW scored the "
+                 "original image files. Some pairs use different JPEG settings. Scores are not probabilities."),
+        "note_zh": ("这些 IDSpace 留出测试图像使用合成身份及照片。NRSW 使用原始图像文件评分，"
+                    "部分配对图像的 JPEG 编码设置不同。分数不等于概率。"),
         "source": {
             "name": "IDSpace by Cactus Lab",
             "url": "https://huggingface.co/datasets/cactuslab/IDSpace/tree/a3de23b950d55a39fbd36cfaee16bd260c4d457d",
@@ -230,6 +291,7 @@ def bundle(work, output):
         "field_labels": FIELD_LABELS,
         "field_labels_zh": FIELD_LABELS_ZH,
         "examples": examples,
+        "evaluation": evaluation,
         "thresholds": [{"fpr": fpr, "threshold": float(cut)} for fpr, cut in zip(TARGETS, cuts, strict=True)],
         "training": {
             "genuine": int((training.labels == 0).sum()),

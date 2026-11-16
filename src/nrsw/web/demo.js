@@ -9,6 +9,9 @@ const restoreButton = byId("restore");
 const randomSampleButton = byId("upload-random");
 const randomGenuineButton = byId("upload-random-genuine");
 const randomForgedButton = byId("upload-random-forged");
+const randomMatchingButton = byId("upload-random-matching");
+const sampleField = byId("sample-field");
+const sampleTechnique = byId("sample-technique");
 const uploadForm = byId("upload-form");
 const uploadFile = byId("upload-file");
 const uploadSubmit = byId("upload-submit");
@@ -16,14 +19,28 @@ const numberFormat = new Intl.NumberFormat(locale, { maximumSignificantDigits: 8
 const integerFormat = new Intl.NumberFormat(locale);
 const percentFormat = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 4 });
 const weightFormat = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 2 });
+const evaluationRateFormat = new Intl.NumberFormat(locale, { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const percentagePointFormat = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const fieldLabels = { name: "Name", number: "Permit number", valid_until: "Valid until" };
 const referenceValues = { name: "Avery Rowan", number: "NB 094 381", valid_until: "18 NOV 2028" };
 const editedValues = { name: "Avery Robin", number: "NB 094 881", valid_until: "18 NOV 2030" };
 const sourceNames = { specimen: "Document images", synthetic: "Simulated features", custom: "Local model" };
+const editTechniques = {
+  fraud_crop_and_replace: "Crop and replace",
+  fraud_inpaint_and_rewrite: "Inpaint and rewrite"
+};
+const evaluationMethods = {
+  nrsw: "NRSW",
+  diagonal: "Diagonal (same field labels)",
+  genuine: "Genuine-only evidence",
+  concat: "Field concatenation",
+  global: "Whole-image features only"
+};
 const slovakLayouts = new Set(["idspace-svk", "IDSpace_SVK_R29"]);
 const builtIn = new Map();
 const drawnSamples = new Set();
+const drawnMatchingSamples = new Set();
 
 let defaultSource;
 let trace;
@@ -168,6 +185,23 @@ function showFitSummary() {
   byId("fit-summary").hidden = !hasCount;
 }
 
+function specimenOptions(data) {
+  const groups = { genuine: element("optgroup"), forged: element("optgroup") };
+  groups.genuine.label = t("Unaltered");
+  groups.forged.label = t("Altered");
+  const titles = data.examples.map(titleOf);
+  const counts = new Map();
+  for (const title of titles) counts.set(title, (counts.get(title) ?? 0) + 1);
+  data.examples.forEach((sample, i) => {
+    const title = titles[i];
+    const pairNumber = typeof sample.pair_id === "string" ? sample.pair_id.match(/^card-(\d+)$/)?.[1] : undefined;
+    const label = sample.label === "forged" && counts.get(title) > 1 && pairNumber ?
+      t("{title} · card {number}").replace("{title}", title).replace("{number}", pairNumber) : title;
+    groups[sample.label].append(option(i, label));
+  });
+  return Object.values(groups).filter((group) => group.children.length);
+}
+
 function useTrace(data, imported = false, imageUrl) {
   if (previewUrl) URL.revokeObjectURL(previewUrl);
   previewUrl = imageUrl;
@@ -181,7 +215,8 @@ function useTrace(data, imported = false, imageUrl) {
     synthetic: "These predictions use simulated features. The illustrations show the fields they represent.",
     custom: "These scores come from a locally trained detector."
   }[data.dataset]);
-  documentSelect.replaceChildren(...data.examples.map((sample, i) => option(i, titleOf(sample))));
+  documentSelect.replaceChildren(...(data.dataset === "specimen" ? specimenOptions(data) :
+    data.examples.map((sample, i) => option(i, titleOf(sample)))));
   const savedSample = data.examples.findIndex((sample) => sample.id === data.selected_id);
   const firstEdit = data.examples.findIndex((sample) => data.dataset === "synthetic" ? sample.id === "number-edit" : sample.label === "forged");
   documentSelect.value = [savedSample, firstEdit, 0].find((index) => index >= 0);
@@ -428,23 +463,25 @@ function showDecision() {
   byId("threshold-value").textContent = hasCut ? numberFormat.format(threshold) : t("Unavailable");
 }
 
-function showRandomSample(label) {
+function showRandomSample(label, subset) {
   const specimen = builtIn.get("specimen");
   if (!specimen) return;
-  if (pendingUpload) cancelUpload();
   const previous = trace === specimen ? currentSample() : lastRandomSample;
   const otherLabel = previous && (previous.label === "genuine" ? "forged" : "genuine");
   const matches = specimen.examples.filter((sample) => sample.label === (label ?? otherLabel));
-  const pool = matches.length ? matches : specimen.examples;
+  const pool = subset ?? (matches.length ? matches : specimen.examples);
+  if (!pool.length) return;
+  if (pendingUpload) cancelUpload();
   const different = pool.filter((sample) => sample !== previous);
   const eligible = different.length ? different : pool;
-  let choices = eligible.filter((sample) => !drawnSamples.has(sample));
+  const drawn = subset ? drawnMatchingSamples : drawnSamples;
+  let choices = eligible.filter((sample) => !drawn.has(sample));
   if (!choices.length) {
-    for (const sample of pool) drawnSamples.delete(sample);
+    for (const sample of pool) drawn.delete(sample);
     choices = eligible;
   }
   const sample = choices[Math.floor(Math.random() * choices.length)];
-  drawnSamples.add(sample);
+  drawn.add(sample);
   lastRandomSample = sample;
 
   const fpr = trace && currentCut()?.fpr;
@@ -455,6 +492,99 @@ function showRandomSample(label) {
   byId("source-label").textContent = t("Saved sample prediction");
   showDocument();
   byId("demo-title").focus();
+}
+
+function matchingAlteredSamples() {
+  const specimen = builtIn.get("specimen");
+  return specimen.examples.filter((sample) => sample.label === "forged" &&
+    (!sampleField.value || sample.edited_fields?.includes(sampleField.value)) &&
+    (!sampleTechnique.value || sample.formation === sampleTechnique.value));
+}
+
+function updateSampleMatches() {
+  const count = matchingAlteredSamples().length;
+  randomMatchingButton.disabled = count === 0;
+  byId("sample-matches").textContent = count === 0 ? t("No samples match both filters.") :
+    t("Matching samples: {count}").replace("{count}", integerFormat.format(count));
+}
+
+function setupAlteredSampleFilters(specimen) {
+  const altered = specimen.examples.filter((sample) => sample.label === "forged");
+  const fields = new Set(altered.flatMap((sample) => sample.edited_fields ?? []));
+  const techniques = new Set(altered.map((sample) => sample.formation));
+  if (!fields.size && ![...techniques].some((key) => Object.hasOwn(editTechniques, key))) return;
+  const labels = locale === "zh-CN" ? specimen.field_labels_zh : specimen.field_labels;
+  sampleField.replaceChildren(option("", t("Any field")), ...specimen.fields.filter((field) => fields.has(field))
+    .map((field) => option(field, labels?.[field] ?? field.replaceAll("_", " "))));
+  sampleTechnique.replaceChildren(option("", t("Any technique")), ...Object.entries(editTechniques)
+    .filter(([key]) => techniques.has(key)).map(([key, label]) => option(key, t(label))));
+  updateSampleMatches();
+  byId("sample-filters").hidden = false;
+}
+
+function renderEvaluation(specimen) {
+  const data = specimen.evaluation;
+  const targets = specimen.thresholds.map((cut) => cut.fpr).sort((a, b) => a - b);
+  const positiveInteger = (value) => Number.isSafeInteger(value) && value > 0;
+  const probability = (value) => Number.isFinite(value) && value >= 0 && value <= 1;
+  if (!data || ![data.genuine, data.forged, data.groups].every(positiveInteger) ||
+      data.groups > data.genuine + data.forged || !targets.length || !Array.isArray(data.methods)) return;
+  const methods = new Map();
+  for (const method of data.methods) {
+    if (!method || !Object.hasOwn(evaluationMethods, method.id) || methods.has(method.id) ||
+        !Array.isArray(method.rates) || method.rates.length !== targets.length) return;
+    const rates = new Map();
+    for (const rate of method.rates) {
+      if (!rate || !targets.includes(rate.target) || rates.has(rate.target) ||
+          !probability(rate.fpr) || !probability(rate.fnr)) return;
+      rates.set(rate.target, rate);
+    }
+    methods.set(method.id, rates);
+  }
+  if (!methods.has("nrsw") || methods.size < 2) return;
+
+  byId("evaluation-scope").textContent = t("{total} synthetic Slovak identity-card images from IDSpace · {genuine} unaltered · {forged} altered · {groups} source groups")
+    .replace("{total}", integerFormat.format(data.genuine + data.forged))
+    .replace("{genuine}", integerFormat.format(data.genuine))
+    .replace("{forged}", integerFormat.format(data.forged))
+    .replace("{groups}", integerFormat.format(data.groups));
+  const table = byId("evaluation-rates");
+  for (const target of targets) {
+    const group = table.createTBody();
+    const targetCell = element("th", percentFormat.format(target), "evaluation-target num");
+    targetCell.scope = "rowgroup";
+    targetCell.rowSpan = methods.size;
+    for (const [id, rates] of methods) {
+      const row = group.insertRow();
+      const methodCell = element("th", t(evaluationMethods[id]));
+      methodCell.scope = "row";
+      if (!row.previousElementSibling) row.append(targetCell);
+      const rate = rates.get(target);
+      row.classList.toggle("evaluation-nrsw", id === "nrsw");
+      row.append(methodCell, element("td", evaluationRateFormat.format(rate.fnr), "num"),
+        element("td", evaluationRateFormat.format(rate.fpr), "num"));
+    }
+  }
+  byId("evaluation").hidden = false;
+  byId("evaluation-nav").hidden = false;
+  byId("evaluation-shortcut").hidden = false;
+
+  const study = data.study;
+  const validGains = (gains) => Array.isArray(gains) && gains.length === targets.length &&
+    gains.every((gain) => Number.isFinite(gain) && Math.abs(gain) <= 100);
+  if (!study || !positiveInteger(study.images) || !validGains(study.native) || !validGains(study.common_jpeg)) return;
+  byId("evaluation-study-scope").textContent = t("On {total} test images, this comparison shows how many percentage points NRSW reduces the group-balanced miss rate versus the diagonal estimator with the same field labels, at matched false-positive rates on the ROC curve.")
+    .replace("{total}", integerFormat.format(study.images));
+  const gains = byId("evaluation-study-rates");
+  for (const [index, target] of targets.entries()) {
+    const row = gains.insertRow();
+    const targetCell = element("th", percentFormat.format(target), "num");
+    targetCell.scope = "row";
+    const cells = [study.native[index], study.common_jpeg[index]].map((gain) =>
+      element("td", t("{value} pp").replace("{value}", percentagePointFormat.format(gain)), "num"));
+    row.append(targetCell, ...cells);
+  }
+  byId("evaluation-study").hidden = false;
 }
 
 function downloadPrediction() {
@@ -716,6 +846,9 @@ restoreButton.addEventListener("click", () => useTrace(builtIn.get(defaultSource
 randomSampleButton.addEventListener("click", () => showRandomSample());
 randomGenuineButton.addEventListener("click", () => showRandomSample("genuine"));
 randomForgedButton.addEventListener("click", () => showRandomSample("forged"));
+randomMatchingButton.addEventListener("click", () => showRandomSample("forged", matchingAlteredSamples()));
+sampleField.addEventListener("change", updateSampleMatches);
+sampleTechnique.addEventListener("change", updateSampleMatches);
 sourceSelect.addEventListener("change", () => useTrace(builtIn.get(sourceSelect.value)));
 documentSelect.addEventListener("change", showDocument);
 thresholdSelect.addEventListener("change", showDecision);
@@ -745,6 +878,8 @@ function loadExamples() {
     randomGenuineButton.hidden = genuine === 0;
     randomForgedButton.hidden = forged === 0;
     byId("sample-picker").hidden = false;
+    setupAlteredSampleFilters(specimen);
+    renderEvaluation(specimen);
   }
   sourceSelect.replaceChildren(...Array.from(builtIn.keys(), (source) => option(source, t(sourceNames[source]))));
   useTrace(builtIn.get(defaultSource));

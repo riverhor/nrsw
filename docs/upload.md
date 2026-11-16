@@ -2,7 +2,9 @@
 
 The demo can run NRSW on a JPEG or PNG when it is connected to an inference service. It starts with one registered layout, the Slovak ID card layout used by the [IDSpace examples](datasets.md). Use an image of the front of the card with the whole card and its fields visible. The detector expects the known layout and requires successful field registration before reporting scores.
 
-The [public demo](https://riverhor.github.io/nrsw/#upload) includes ten original synthetic IDSpace images and their ten tampered counterparts. Choose a random unaltered or tampered image to see its saved NRSW prediction and dataset label. The samples are available without a file or access to the inference service.
+The [public demo](https://riverhor.github.io/nrsw/#upload) includes 100 original synthetic IDSpace images and their 100 tampered counterparts. Draw a random image or filter by altered field and edit technique to see saved NRSW predictions. The gallery balances the two edit techniques across ten text fields and keeps the original image files. The examples are available without the inference service.
+
+The [held-out results](https://riverhor.github.io/nrsw/#evaluation) use all 4,106 images in the demo model's test split. The gallery alone cannot estimate error rates. The [image-based reproduction guide](raw-reproduction.md#slovak-idspace) gives the larger study and the common-JPEG refit results at matched ROC false-positive rates.
 
 ## Start on your computer
 

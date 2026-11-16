@@ -6,7 +6,7 @@ NRSW (Normal-Referenced Spectral Weighting) detects signs of tampering in docume
 
 ## Try the demo
 
-Open the [browser demo](https://riverhor.github.io/nrsw/#upload) to try 20 synthetic Slovak ID images from [IDSpace](docs/datasets.md). You can choose a random unaltered or tampered image. Each saved NRSW prediction shows field weights, the forgery score and the review decision alongside the dataset label. For live detection, upload an image of the same layout.
+Open the [browser demo](https://riverhor.github.io/nrsw/#upload) to try 200 synthetic Slovak ID images from [IDSpace](docs/datasets.md). Choose an unaltered image or find a tampered example by field and edit technique. Each prediction shows field weights, the forgery score and the review decision. The [test results](https://riverhor.github.io/nrsw/#evaluation) compare NRSW with matched baselines on 4,106 held-out images. For live detection, upload an image of the same layout.
 
 To open the demo locally, install from this directory in a Python 3.11+ virtual environment.
 

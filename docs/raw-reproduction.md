@@ -50,7 +50,7 @@ To test sensitivity to JPEG with the same models and thresholds, fit and calibra
 python -m research_tools.jpeg --r5-runtime runs/paper/r5 --run runs/paper/common-jpeg freeze --native-measurements runs/paper/all/measurements --submission paper.zip
 ```
 
-To rebuild the browser demo's image examples after the original-image run, run the following command. It refits the detector for one study split, checks the new scores and thresholds against the saved results, and exports the selected held-out images with their predictions.
+To rebuild the [browser demo](https://riverhor.github.io/nrsw/#upload) after the original-image run, use the command below. It exports 100 pairs selected by field and edit technique from one test split, with selections fixed independently of the classifier scores. It checks the image hashes, compares the predictions and thresholds with the saved results, and recalculates the group-balanced error rates on all 4,106 test images against the [published split results](../research_tools/svk_native_witness.json). If the verified common-JPEG refit is available, the export also includes the larger comparison at matched ROC false-positive rates.
 
 ```console
 python -m research_tools.demo_specimens --work runs/paper --output runs/demo-specimens

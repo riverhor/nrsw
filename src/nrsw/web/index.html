@@ -20,6 +20,7 @@
       <a class="brand" href="#top" aria-label="NRSW home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>NRSW</a>
       <nav aria-label="Main navigation">
         <a href="#inspect" data-translate>Demo</a>
+        <a id="evaluation-nav" href="#evaluation" hidden data-translate>Evaluation</a>
         <a href="#method" data-translate>Method</a>
         <a href="#use" data-translate>Use NRSW</a>
         <a id="language-switch" href="?lang=zh-CN" lang="zh-CN">简体中文</a>
@@ -49,6 +50,16 @@
           <button id="upload-random-genuine" class="quiet-button" type="button" data-translate>Try an unaltered sample</button>
           <button id="upload-random-forged" class="quiet-button" type="button" data-translate>Try an altered sample</button>
         </div>
+        <details id="sample-filters" class="sample-filters" hidden>
+          <summary data-translate>Find an altered sample by field or technique</summary>
+          <div class="sample-filter-controls">
+            <div class="select-control"><label for="sample-field" data-translate>Edited field</label><select id="sample-field"></select></div>
+            <div class="select-control"><label for="sample-technique" data-translate>Edit technique</label><select id="sample-technique"></select></div>
+            <button id="upload-random-matching" class="quiet-button" type="button" data-translate>Try a matching sample</button>
+          </div>
+          <p id="sample-matches" role="status"></p>
+        </details>
+        <a id="evaluation-shortcut" href="#evaluation" hidden data-translate>See the full held-out comparison</a>
       </div>
       <div class="upload-heading">
         <h2 id="upload-title" data-translate>Check your own document</h2>
@@ -135,6 +146,39 @@
           </article>
         </div>
       </div>
+    </section>
+
+    <section id="evaluation" class="evaluation workbench" aria-labelledby="evaluation-title" hidden>
+      <h2 id="evaluation-title" data-translate>Held-out evaluation</h2>
+      <p id="evaluation-scope" class="evaluation-scope"></p>
+      <p id="evaluation-protocol" data-translate>All detectors use the same data split, with each threshold set separately on genuine calibration images. The table shows the resulting error rates on the held-out test set, with equal weight for source groups within each class.</p>
+      <table id="evaluation-rates" aria-labelledby="evaluation-title" aria-describedby="evaluation-protocol">
+        <thead>
+          <tr>
+            <th scope="col" data-translate>False-positive target</th>
+            <th scope="col" data-translate>Detector</th>
+            <th scope="col" data-translate>Miss rate</th>
+            <th scope="col" data-translate>Observed false-positive rate</th>
+          </tr>
+        </thead>
+      </table>
+      <p data-translate>The miss rate is the share of forgeries that passed. The false-positive rate is the share of unaltered documents flagged for review.</p>
+      <div id="evaluation-study" class="evaluation-study" hidden>
+        <h3 id="evaluation-study-title" data-translate>Larger test-set comparison</h3>
+        <p id="evaluation-study-scope"></p>
+        <table aria-labelledby="evaluation-study-title" aria-describedby="evaluation-study-scope">
+          <thead>
+            <tr>
+              <th scope="col" data-translate>Matched false-positive rate</th>
+              <th scope="col" data-translate>Original images</th>
+              <th scope="col" data-translate>Common JPEG re-encoding and refit</th>
+            </tr>
+          </thead>
+          <tbody id="evaluation-study-rates"></tbody>
+        </table>
+        <p data-translate>The JPEG comparison applies the same additional encoding to both classes before refitting.</p>
+      </div>
+      <a href="https://github.com/riverhor/nrsw/blob/main/docs/raw-reproduction.md" data-translate>Reproduce the experiments</a>
     </section>
 
     <section id="method" class="explain" aria-labelledby="method-title">
