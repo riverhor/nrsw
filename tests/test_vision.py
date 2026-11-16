@@ -1,12 +1,36 @@
 import argparse
 import json
+import sys
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
-from nrsw import extraction
+from nrsw import encoders, extraction
 from nrsw.schema import load_feature_dataset
 from nrsw.vision import AlignedLayoutRegistrar, add_vision_commands, extract_images
+
+
+@pytest.mark.parametrize("release,revision,cuda,accepted", [
+    ("2.13.0", "cf30153c4c131c8164ee7798e5022d810682e2cb", "13.0", True),
+    ("2.13.0+cu130", "cf30153c4c131c8164ee7798e5022d810682e2cb", "13.0", True),
+    ("2.13.0+cpu", "cf30153c4c131c8164ee7798e5022d810682e2cb", None, False),
+    ("2.13.0", "cf30153c4c131c8164ee7798e5022d810682e2cb", "12.8", False),
+    ("2.13.0", "other-build", "13.0", False),
+    ("2.13.1", "cf30153c4c131c8164ee7798e5022d810682e2cb", "13.0", False),
+])
+def test_zerogpu_torch_alias_is_strict_and_opt_in(monkeypatch, release, revision, cuda, accepted):
+    versions = {"torch": "2.13.0", "torchvision": "0.28.0+cu130"}
+    monkeypatch.setattr(encoders.importlib.metadata, "version", lambda package: versions.get(package, "1"))
+    module = SimpleNamespace(__version__=release, version=SimpleNamespace(git_version=revision, cuda=cuda))
+    monkeypatch.setitem(sys.modules, "torch", module)
+    default = encoders.runtime_versions()
+    assert default["torch"] == "2.13.0"
+    if accepted:
+        assert encoders.runtime_versions(allow_zerogpu_torch=True) == {**default, "torch": "2.13.0+cu130"}
+    else:
+        with pytest.raises(ValueError, match="verified PyTorch 2.13.0 CUDA 13.0 build"):
+            encoders.runtime_versions(allow_zerogpu_torch=True)
 
 
 def layout_config():

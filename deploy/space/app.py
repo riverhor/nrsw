@@ -7,9 +7,9 @@ from pathlib import Path
 
 import spaces
 import gradio as gr
-import uvicorn
-from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
+from gradio.route_utils import CustomCORSMiddleware
+from gradio.routes import App
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
@@ -25,6 +25,14 @@ MAX_REQUEST_BYTES = MAX_BASE64_BYTES + 1024
 QUEUE_PREFIX = "/gradio_api/call/"
 CALLS = {QUEUE_PREFIX + name for name in ("status", "predict")}
 PAGES_ORIGIN = "https://riverhor.github.io"
+
+
+class PagesApp(App):
+    """Keep only the explicit CORS policy when Gradio adds its default middleware."""
+
+    def add_middleware(self, middleware_class, *args, **kwargs):
+        if middleware_class is not CustomCORSMiddleware:
+            super().add_middleware(middleware_class, *args, **kwargs)
 
 
 class UploadLimits:
@@ -110,26 +118,27 @@ def build_demo(registry):
     return demo.queue(max_size=6, api_open=False)
 
 
-def create_app(demo):
+def launch(demo, **options):
     async def invalid_request(_request, _error):
         return JSONResponse({"error": "invalid_image"}, status_code=422)
 
-    service = FastAPI(middleware=[
+    service = PagesApp(middleware=[
         Middleware(CORSMiddleware, allow_origins=[PAGES_ORIGIN], allow_methods=["GET", "POST"],
                    allow_headers=["Content-Type"]),
         Middleware(UploadLimits),
-    ])
-    return gr.mount_gradio_app(service, demo, path="/", show_error=False, enable_monitoring=False,
-                               ssr_mode=False, pwa=False, run_history=False,
-                               app_kwargs={"exception_handlers": {RequestValidationError: invalid_request}})
+    ], exception_handlers={RequestValidationError: invalid_request})
+    # The Space's ZeroGPU runtime installs its startup hook on Blocks.launch.
+    return demo.launch(_app=service, share=False, show_error=False, enable_monitoring=False,
+                       ssr_mode=False, pwa=False, run_history=False, **options)
 
 
 def main():
     layout_path = Path(os.environ.get("NRSW_LAYOUTS", Path(__file__).with_name("detector") / "layouts.json"))
-    with LayoutRegistry.from_file(layout_path, device="cuda", precision="fp16", allow_download=True) as registry:
+    with LayoutRegistry.from_file(layout_path, device="cuda", precision="fp16", allow_download=True,
+                                  allow_zerogpu_torch=True) as registry:
         # ZeroGPU packs these tensors at startup and restores them in the GPU worker.
         registry.prepare(LAYOUT_ID)
-        uvicorn.run(create_app(build_demo(registry)), host="0.0.0.0", port=7860, access_log=False)
+        launch(build_demo(registry), server_name="0.0.0.0", server_port=7860)
 
 
 if __name__ == "__main__":

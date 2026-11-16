@@ -139,10 +139,11 @@ class ImageEncoders:
     """Reuse the same visual encoders across images."""
 
     def __init__(self, *, device="auto", batch_size=1, mobile_batch_size=32, sd_snapshot=None,
-                 mobile_weights=None, precision="auto", allow_download=False):
+                 mobile_weights=None, precision="auto", allow_download=False, allow_zerogpu_torch=False):
         if not isinstance(batch_size, int) or batch_size < 1:
             raise ValueError("batch_size must be a positive integer")
         self.batch_size = batch_size
+        self.allow_zerogpu_torch = allow_zerogpu_torch
         self.mobile = MobileEncoder(mobile_weights, device=device, batch_size=mobile_batch_size,
                                     allow_download=allow_download)
         self.sd = SDEncoder(sd_snapshot, device=device, precision=precision, batch_size=batch_size,
@@ -153,7 +154,7 @@ class ImageEncoders:
         if self.sd.precision != "fp16" or str(self.sd.device) == "cpu" or self.batch_size != 1:
             differences.append("SD_execution_differs_from_native_CUDA_FP16_batch1")
         return dict(schema="nrsw.paper_visual_frontend.v1", sd=self.sd.contract(), mobile=self.mobile.contract(),
-                    registration=geometry, versions=runtime_versions(),
+                    registration=geometry, versions=runtime_versions(allow_zerogpu_torch=self.allow_zerogpu_torch),
                     reference_images=[dict(sha256=r["sha256"], quads={f: q.tolist() for f, q in r["quads"].items()})
                                       for r in registrar.references],
                     deterministic_algorithms=True, cudnn_benchmark=False, tf32=False,

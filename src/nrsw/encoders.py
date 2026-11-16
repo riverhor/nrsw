@@ -62,13 +62,22 @@ def _torch_runtime(device="auto"):
     return torch, target
 
 
-def runtime_versions():
+def runtime_versions(*, allow_zerogpu_torch=False):
     result = {}
     for package in ("numpy", "Pillow", "torch", "torchvision", "diffusers", "transformers", "opencv-python-headless"):
         try:
             result[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
             result[package] = None
+    if allow_zerogpu_torch and result["torch"] == "2.13.0":
+        import torch
+
+        # ZeroGPU pins the public distribution version for this CUDA build.
+        if (torch.__version__ not in ("2.13.0", "2.13.0+cu130")
+                or torch.version.git_version != "cf30153c4c131c8164ee7798e5022d810682e2cb"
+                or torch.version.cuda != "13.0"):
+            raise ValueError("ZeroGPU requires the verified PyTorch 2.13.0 CUDA 13.0 build")
+        result["torch"] = "2.13.0+cu130"
     return result
 
 
