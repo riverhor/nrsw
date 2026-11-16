@@ -18,7 +18,12 @@ def test_export_keeps_the_scored_documents_and_their_predictions(tmp_path):
 
     fields = set(data["fields"])
     pairs = defaultdict(set)
+    formations = set()
+    edited_fields = set()
     assert [point["fpr"] for point in data["thresholds"]] == [0.01, 0.05, 0.10]
+    examples = {example["id"]: example for example in data["examples"]}
+    assert len(examples) == len(data["examples"])
+    assert examples[data["selected_id"]]["label"] == "genuine"
     for example in data["examples"]:
         image = site / example["image"]
         assert image.parent == specimens
@@ -29,7 +34,13 @@ def test_export_keeps_the_scored_documents_and_their_predictions(tmp_path):
         assert sum(example["weights"]) == pytest.approx(1)
         assert set(example["edited_fields"]) <= fields
         assert bool(example["edited_fields"]) == (example["label"] == "forged")
+        assert example["source_member"].split("/", 1)[0] == example["formation"]
+        if example["label"] == "forged":
+            formations.add(example["formation"])
+            edited_fields.update(example["edited_fields"])
         pairs[example["pair_id"]].add(example["label"])
-    assert len(data["examples"]) == 6
-    assert len(pairs) == 3
+    assert len(pairs) >= 10
+    assert len(examples) == 2 * len(pairs)
     assert all(labels == {"genuine", "forged"} for labels in pairs.values())
+    assert formations == {"fraud_crop_and_replace", "fraud_inpaint_and_rewrite"}
+    assert len(edited_fields) >= 4

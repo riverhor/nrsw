@@ -6,7 +6,7 @@
 
 ## 試用示範
 
-開啟[線上示範](https://riverhor.github.io/nrsw/#upload)，按下隨機樣本按鈕，即可查看一張 [IDSpace](docs/datasets.md) 斯洛伐克身分證合成影像的已保存 NRSW 結果，包括欄位權重、偽造分數和複核判斷。也可上傳同版型影像，即時執行偵測。
+開啟[線上示範](https://riverhor.github.io/nrsw/#upload)，即可從 20 張 [IDSpace](docs/datasets.md) 斯洛伐克身分證合成影像中隨機抽選，可指定未竄改或已竄改樣本。每張影像都有已保存的 NRSW 結果，包括欄位權重、偽造分數和複核判斷，並附資料集標籤。也可上傳同版型影像，即時執行偵測。
 
 若要在本機開啟示範，請在 Python 3.11 以上的虛擬環境中，從專案目錄執行下列指令。
 

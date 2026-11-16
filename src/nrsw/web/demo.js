@@ -7,6 +7,8 @@ const thresholdSelect = byId("threshold-select");
 const traceFile = byId("trace-file");
 const restoreButton = byId("restore");
 const randomSampleButton = byId("upload-random");
+const randomGenuineButton = byId("upload-random-genuine");
+const randomForgedButton = byId("upload-random-forged");
 const uploadForm = byId("upload-form");
 const uploadFile = byId("upload-file");
 const uploadSubmit = byId("upload-submit");
@@ -21,6 +23,7 @@ const editedValues = { name: "Avery Robin", number: "NB 094 881", valid_until: "
 const sourceNames = { specimen: "Document images", synthetic: "Simulated features", custom: "Local model" };
 const slovakLayouts = new Set(["idspace-svk", "IDSpace_SVK_R29"]);
 const builtIn = new Map();
+const drawnSamples = new Set();
 
 let defaultSource;
 let trace;
@@ -322,17 +325,29 @@ function showSpecimen(sample) {
   images.replaceChildren(specimenImage(sample, "Scored document"));
   const match = sample.pair_id === undefined ? -1 : trace.examples.findIndex((item) =>
     item.pair_id === sample.pair_id && item.label !== sample.label);
-  images.classList.toggle("paired", match >= 0);
+  images.classList.toggle("paired", match >= 0 && sample.label === "forged");
   if (match >= 0) {
     const counterpart = trace.examples[match];
-    images.append(specimenImage(counterpart, counterpart.label === "genuine" ? "Matching unaltered image" : "Matching altered image", match));
+    if (sample.label === "genuine") {
+      const comparison = element("details", undefined, "sample-comparison");
+      const summary = element("summary", t("Compare with the altered version"));
+      comparison.append(summary, specimenImage(counterpart, "Matching altered image", match));
+      images.append(comparison);
+    } else {
+      images.append(specimenImage(counterpart, "Matching unaltered image", match));
+    }
   }
 
   const facts = byId("specimen-facts");
-  facts.replaceChildren(element("dt", t("Dataset label")), element("dd", t(sample.label === "genuine" ? "Unaltered" : "Altered")));
+  facts.hidden = !sample.edited_fields?.length;
+  facts.replaceChildren();
   if (sample.edited_fields?.length) {
     facts.append(element("dt", t("Annotated edit")), element("dd", sample.edited_fields.map(fieldLabel).join(locale === "zh-CN" ? "、" : ", ")));
   }
+  byId("sample-label-value").textContent = t(sample.label === "genuine" ? "Unaltered" : "Altered");
+  const specimenNote = byId("specimen-note");
+  specimenNote.textContent = localized(sample, "note") ?? "";
+  specimenNote.hidden = !specimenNote.textContent;
 
   const credit = byId("document-credit");
   const source = trace.source;
@@ -355,7 +370,9 @@ function showDocument() {
   byId("illustrations").hidden = !synthetic;
   byId("specimen-documents").hidden = !hasImage;
   if (!hasImage) byId("specimen-documents").replaceChildren();
-  byId("specimen-facts").hidden = !specimen;
+  byId("sample-label").hidden = !specimen;
+  byId("specimen-facts").hidden = true;
+  byId("specimen-note").hidden = true;
   byId("custom-document").hidden = synthetic || hasImage;
   byId("document-credit").hidden = true;
   if (synthetic) {
@@ -411,14 +428,23 @@ function showDecision() {
   byId("threshold-value").textContent = hasCut ? numberFormat.format(threshold) : t("Unavailable");
 }
 
-function showRandomSample() {
+function showRandomSample(label) {
   const specimen = builtIn.get("specimen");
   if (!specimen) return;
   if (pendingUpload) cancelUpload();
-  const visibleSample = trace === specimen ? currentSample() : undefined;
-  const choices = specimen.examples.filter((sample) => sample !== visibleSample && sample !== lastRandomSample);
-  const pool = choices.length ? choices : specimen.examples.filter((sample) => sample !== visibleSample);
-  const sample = pool[Math.floor(Math.random() * pool.length)] ?? specimen.examples[0];
+  const previous = trace === specimen ? currentSample() : lastRandomSample;
+  const otherLabel = previous && (previous.label === "genuine" ? "forged" : "genuine");
+  const matches = specimen.examples.filter((sample) => sample.label === (label ?? otherLabel));
+  const pool = matches.length ? matches : specimen.examples;
+  const different = pool.filter((sample) => sample !== previous);
+  const eligible = different.length ? different : pool;
+  let choices = eligible.filter((sample) => !drawnSamples.has(sample));
+  if (!choices.length) {
+    for (const sample of pool) drawnSamples.delete(sample);
+    choices = eligible;
+  }
+  const sample = choices[Math.floor(Math.random() * choices.length)];
+  drawnSamples.add(sample);
   lastRandomSample = sample;
 
   const fpr = trace && currentCut()?.fpr;
@@ -687,7 +713,9 @@ traceFile.addEventListener("change", async () => {
   }
 });
 restoreButton.addEventListener("click", () => useTrace(builtIn.get(defaultSource)));
-randomSampleButton.addEventListener("click", showRandomSample);
+randomSampleButton.addEventListener("click", () => showRandomSample());
+randomGenuineButton.addEventListener("click", () => showRandomSample("genuine"));
+randomForgedButton.addEventListener("click", () => showRandomSample("forged"));
 sourceSelect.addEventListener("change", () => useTrace(builtIn.get(sourceSelect.value)));
 documentSelect.addEventListener("change", showDocument);
 thresholdSelect.addEventListener("change", showDecision);
@@ -708,7 +736,16 @@ function loadExamples() {
     showStatus("Could not load examples. Open a prediction file or start the demo with nrsw serve.", true);
     return;
   }
-  randomSampleButton.hidden = !builtIn.has("specimen");
+  const specimen = builtIn.get("specimen");
+  if (specimen) {
+    const genuine = specimen.examples.filter((sample) => sample.label === "genuine").length;
+    const forged = specimen.examples.length - genuine;
+    byId("sample-count").textContent = t("{genuine} unaltered · {forged} altered")
+      .replace("{genuine}", integerFormat.format(genuine)).replace("{forged}", integerFormat.format(forged));
+    randomGenuineButton.hidden = genuine === 0;
+    randomForgedButton.hidden = forged === 0;
+    byId("sample-picker").hidden = false;
+  }
   sourceSelect.replaceChildren(...Array.from(builtIn.keys(), (source) => option(source, t(sourceNames[source]))));
   useTrace(builtIn.get(defaultSource));
 }

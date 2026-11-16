@@ -108,7 +108,11 @@ h3 { font-size: 1rem; }
 .upload h2 { margin-bottom: 0.3rem; }
 .upload p, .upload a, .upload-controls { color: var(--muted); font-size: 0.86rem; }
 .upload a { width: fit-content; color: var(--accent-dark); }
-#upload-random, #upload-retry { justify-self: start; }
+#upload-retry { justify-self: start; }
+.sample-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0.5rem 0 0.2rem; }
+.sample-actions .sample-primary { color: var(--white); background: var(--accent-dark); border-color: var(--accent-dark); }
+.sample-actions .sample-primary:hover { background: var(--accent); }
+.sample-picker:not([hidden]) + .upload-heading { margin-top: 0.38rem; border-top: 1px solid var(--line); padding-top: 0.8rem; }
 .upload-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 0.45rem 0.75rem; margin: 0.18rem 0 0.4rem; }
 #upload-name { max-width: min(100%, 26rem); overflow-wrap: anywhere; }
 .upload-submit { min-height: 2.25rem; padding: 0.25rem 0.7rem; border: 1px solid var(--accent-dark); border-radius: 6px; background: var(--accent-dark); color: var(--white); font-size: 0.82rem; font-weight: 650; }
@@ -199,6 +203,8 @@ select {
   font-size: 0.79rem;
 }
 .specimen-documents figcaption button { min-height: 1.5rem; padding: 0.05rem 0.45rem; font-size: 0.75rem; }
+.sample-comparison summary { width: fit-content; color: var(--accent-dark); font-size: 0.82rem; font-weight: 650; cursor: pointer; }
+.sample-comparison[open] summary { margin-bottom: 0.5rem; }
 .specimen-frame { position: relative; width: fit-content; max-width: 100%; background: #edf2f5; }
 .specimen-frame img { display: block; max-width: 100%; height: auto; }
 .field-box {
@@ -349,6 +355,9 @@ select {
   background: #edf7f8;
 }
 .decision output { display: block; font-size: 1.24rem; line-height: 1.25; font-weight: 730; margin-top: 0.16rem; }
+.sample-label { display: flex; flex-wrap: wrap; gap: 0 0.4rem; margin-top: 0.38rem; font-size: 0.78rem; }
+.sample-label dt { color: var(--muted); }
+.sample-label dd { font-weight: 650; }
 .decision.review { border-bottom-color: #e2c7bb; background: #fff4ec; }
 .decision.review .eyebrow, .decision.review output { color: var(--review); }
 .decision-values { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; }

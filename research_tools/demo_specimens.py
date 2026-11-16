@@ -45,6 +45,14 @@ FIELD_LABELS_ZH = {
     "personal_num": "个人编号",
     "surname": "姓氏",
 }
+EDIT_METHODS = {
+    "fraud_crop_and_replace": ("Crop and replace", "裁切替换",
+                               "The marked field was replaced with a crop from another document.",
+                               "标出的字段使用另一张证件的裁切内容替换。"),
+    "fraud_inpaint_and_rewrite": ("Inpaint and rewrite", "修补后重写",
+                                  "The marked field was erased and rewritten with the same text.",
+                                  "标出的字段抹除后重新绘制，文字内容相同。"),
+}
 
 
 @dataclass(frozen=True)
@@ -61,6 +69,13 @@ PAIRS = (
     Pair("given_name", "12717", "2648", "fraud_crop_and_replace"),
     Pair("card_num", "6523", "4834", "fraud_crop_and_replace"),
     Pair("birthday", "8152", "1852", "fraud_crop_and_replace"),
+    Pair("surname", "548", "851", "fraud_crop_and_replace"),
+    Pair("personal_num", "2625", "12326", "fraud_inpaint_and_rewrite"),
+    Pair("expire_date", "11517", "2497", "fraud_inpaint_and_rewrite"),
+    Pair("issue_date", "7478", "4602", "fraud_inpaint_and_rewrite"),
+    Pair("issue_authority", "6871", "500", "fraud_crop_and_replace"),
+    Pair("gender", "9115", "11789", "fraud_inpaint_and_rewrite"),
+    Pair("country_code", "4680", "15151", "fraud_inpaint_and_rewrite"),
 )
 
 
@@ -130,8 +145,8 @@ def bundle(work, output):
     fields = list(model.layout.fields)
     positions = {identity: index for index, identity in enumerate(test.ids)}
     wanted = [identity for pair in PAIRS for identity in (pair.genuine, pair.forged)]
-    if len(wanted) != 6 or len(set(wanted)) != len(wanted) or not set(wanted) <= positions.keys():
-        raise ValueError("Expected three disjoint pairs from the reproduced test set")
+    if len(set(wanted)) != len(wanted) or not set(wanted) <= positions.keys():
+        raise ValueError("Example pairs must use distinct images from the reproduced test set")
     batch = test.subset(np.array([positions[identity] for identity in wanted]))
     if not batch.local_valid.all() or any(not data.documents[identity]["original_local_valid"] for identity in wanted):
         raise ValueError("Each example must have original field measurements")
@@ -150,6 +165,8 @@ def bundle(work, output):
         np.testing.assert_array_equal(scores[:, None] > cuts, archived_scores[:, None] > cuts)
 
     rows = {data.documents[identity]["id"]: data.documents[identity] for identity in wanted}
+    if len({rows[pair.genuine]["group"] for pair in PAIRS}) != len(PAIRS):
+        raise ValueError("Example pairs must use distinct source groups")
     plan = json.loads((work / "all/measurements/PLAN.json").read_text(encoding="utf-8"))
     plans = {row["id"]: row for row in plan["rows"] if row["id"] in rows}
     images = (work / "all/images").resolve(strict=True)
@@ -162,6 +179,7 @@ def bundle(work, output):
             raise ValueError("Image does not match its publisher edit method")
         field = FIELD_LABELS[pair.field]
         field_zh = FIELD_LABELS_ZH[pair.field]
+        method, method_zh, method_note, method_note_zh = EDIT_METHODS[pair.formation]
         image_rows = (plans[pair.genuine], plans[pair.forged])
         original, altered = (image_payload(images, row, fields) for row in image_rows)
         if original[2] != altered[2]:
@@ -175,13 +193,12 @@ def bundle(work, output):
             examples.append({
                 "id": identifier,
                 "pair_id": f"card-{number}",
-                "title": f"{field} edit" if is_forged else f"Unaltered card {number}",
-                "title_zh": f"{field_zh}篡改" if is_forged else f"未篡改证件 {number}",
-                "note": (f"The publisher marks {field.lower()} as edited."
-                         if is_forged else "The original image from the publisher's synthetic identity pair."),
-                "note_zh": (f"发布方将{field_zh}标注为篡改字段。"
-                            if is_forged else "这是发布方同一合成身份对应的未篡改原图。"),
+                "title": f"{field} edit ({method.lower()})" if is_forged else f"Unaltered card {number}",
+                "title_zh": f"{field_zh}篡改（{method_zh}）" if is_forged else f"未篡改证件 {number}",
+                "note": method_note if is_forged else "The original image from the dataset's synthetic identity pair.",
+                "note_zh": method_note_zh if is_forged else "这张合成证件是数据集中的未篡改原图。",
                 "label": label,
+                "formation": pair.formation if is_forged else "positive",
                 "image": f"./specimens/{filename}",
                 "image_sha256": row["sha256"],
                 "source_member": row["member"],
@@ -196,7 +213,7 @@ def bundle(work, output):
         "layout": "idspace-svk",
         "layout_name": "Slovak identity-card specimen",
         "layout_name_zh": "斯洛伐克身份证样本",
-        "selected_id": "card-2-forged",
+        "selected_id": "card-1-genuine",
         "selected_fpr": TARGETS[0],
         "note": ("These are original test images from the IDSpace dataset, which uses synthetic identities "
                  "and generated portraits. The displayed scores and field weights were computed from these exact "

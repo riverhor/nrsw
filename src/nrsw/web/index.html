@@ -41,11 +41,19 @@
     </section>
 
     <section id="upload" class="upload workbench" aria-labelledby="upload-title">
-      <div>
+      <div id="sample-picker" class="sample-picker" hidden>
+        <h2 id="sample-title" data-translate>Try sample documents</h2>
+        <p id="sample-count"></p>
+        <div class="sample-actions" role="group" aria-labelledby="sample-title">
+          <button id="upload-random" class="quiet-button sample-primary" type="button" data-translate>Try a random sample</button>
+          <button id="upload-random-genuine" class="quiet-button" type="button" data-translate>Try an unaltered sample</button>
+          <button id="upload-random-forged" class="quiet-button" type="button" data-translate>Try an altered sample</button>
+        </div>
+      </div>
+      <div class="upload-heading">
         <h2 id="upload-title" data-translate>Check your own document</h2>
         <p id="upload-layout" data-translate>Use a clear image of the entire front of the Slovak identity card shown in this demo.</p>
       </div>
-      <button id="upload-random" class="quiet-button" type="button" hidden data-translate>Try a random sample</button>
       <p id="upload-unavailable" data-translate>Live detection is unavailable here. Follow the local setup guide to check your own image.</p>
       <button id="upload-retry" class="quiet-button" type="button" hidden data-translate>Connect again</button>
       <form id="upload-form" hidden>
@@ -84,8 +92,11 @@
         </div>
         <div class="decision" aria-live="polite">
           <div class="decision-main">
-            <p class="eyebrow" data-translate>Calibrated decision</p>
+            <p class="eyebrow" data-translate>Model decision</p>
             <output id="decision-value"></output>
+            <dl id="sample-label" class="sample-label" hidden>
+              <dt data-translate>Dataset label</dt><dd id="sample-label-value"></dd>
+            </dl>
           </div>
           <dl class="decision-values">
             <div><dt data-translate>Forgery score</dt><dd id="score-value"></dd></div>
@@ -109,6 +120,7 @@
             </div>
             <div id="specimen-documents" class="specimen-documents" hidden></div>
             <dl id="specimen-facts" class="specimen-facts" hidden></dl>
+            <p id="specimen-note" class="example-note" hidden></p>
             <div class="selected-document" id="custom-document" hidden></div>
             <p id="example-note" class="example-note"></p>
             <p id="document-credit" class="document-credit" hidden></p>
