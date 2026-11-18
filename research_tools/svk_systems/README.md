@@ -2,7 +2,7 @@
 
 This comparison uses the same 384 training sets to fit NRSW, a classifier on whole-image features, the historical shared-core classifier, ResNet-18, DINOv3 and FLiD. Each method sets its own thresholds from 500 genuine calibration images. The original test set contains 16,210 images. The expanded set uses the same fitted models and thresholds on 28,326 images.
 
-Start with the [original-image run](../../docs/raw-reproduction.md#slovak-idspace), which provides the publisher archives, image files and Stable Diffusion and MobileNet features under `runs/paper/`. Obtain the baseline weights using the [CrossVerify download command](../crossverify/README.md#download-the-public-inputs-separately). Run the following from the repository root with the study environment active.
+Start with the [original-image run](../../docs/archived-image-workflows.md#slovak-idspace), which provides the publisher archives, image files and Stable Diffusion and MobileNet features under `runs/paper/`. Obtain the baseline weights using the [CrossVerify download command](../crossverify/README.md#download-the-public-inputs-separately). Run the following from the repository root with the study environment active.
 
 ```console
 python -m pip install timm==1.0.31 scikit-learn==1.9.0

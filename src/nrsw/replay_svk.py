@@ -14,6 +14,7 @@ from .calibration import choose_np_rank
 
 
 SVK_REPLAY_SHA256 = "fb0ece96f407bb2deb3bff8e40e7697529a0925fda6144f0f82d96b7c4003bf0"
+STUDY_SVK_REPLAY_SHA256 = "02ac5cf8d8da91f877cc09bea39fdca3602b99a30ec8c480a8fbbb896541058b"
 TARGETS = (1, 5, 10)
 RANKS = tuple(choose_np_rank(500, target, 100)["rank"] for target in TARGETS)
 NATIVE_METHODS = ("NRSW_COMMON_UNIT", "TAG_DIAGONAL", "GENUINE_ENERGY", "CONCAT_NO_EVIDENCE", "SD", "DS")
@@ -82,7 +83,8 @@ def replay(path: Path, native_reference: dict, jpeg_reference: dict, crossed_ref
     """Recompute ROC and fixed-threshold error rates from saved score ranks."""
     with path.open("rb") as stream:
         digest = file_digest(stream, "sha256").hexdigest()
-        _require(digest == SVK_REPLAY_SHA256, f"The IDSpace score ZIP must have SHA-256 {SVK_REPLAY_SHA256}. Found {digest}")
+        _require(digest in (STUDY_SVK_REPLAY_SHA256, SVK_REPLAY_SHA256),
+                 f"The IDSpace score ZIP must have SHA-256 {STUDY_SVK_REPLAY_SHA256} or {SVK_REPLAY_SHA256}. Found {digest}")
         stream.seek(0)
         with ZipFile(stream) as archive:
             manifest = json.loads(archive.read("MANIFEST.json"))

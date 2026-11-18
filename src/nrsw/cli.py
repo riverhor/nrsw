@@ -183,9 +183,10 @@ def build_parser():
     commands = parser.add_subparsers(dest="command", required=True)
 
     reproduce = commands.add_parser("reproduce", help="recompute the paper's results from saved scores")
-    reproduce.add_argument("archive", type=Path, help="paper and results ZIP")
+    reproduce.add_argument("archive", type=Path, help="NRSW_IPM_data.zip or the preserved original study ZIP")
     reproduce.add_argument("--svk-scores", type=Path, help="optional IDSpace score ZIP")
-    reproduce.add_argument("--extract-r5", type=Path, help="copy the image reproduction tools to a new ZIP")
+    reproduce.add_argument("--extract-image-runtime", "--extract-r5", dest="extract_r5", type=Path,
+                           help="copy the matching image reproduction tools to a new ZIP")
     reproduce.add_argument("--json", action="store_true", help="write the verification report as JSON")
     reproduce.set_defaults(handler=_reproduce)
 

@@ -90,4 +90,6 @@ classDiagram
     FieldClassifierModel *-- JointModel : document classifier
 ```
 
+The optional field-classifier model contains a refitted document branch and separate field branches. Genuine training rows define their score scales; independent genuine calibration rows define the threshold of the combined maximum score. See [field-classifier details](field-classifiers.md).
+
 The public Python API accepts a `FeatureDataset` in `fit`, `calibrate`, and `predict`. `LayoutRegistry` adds image extraction and layout selection for applications that call NRSW directly. A registry loads its encoders when first needed and shares them across its layout entries.

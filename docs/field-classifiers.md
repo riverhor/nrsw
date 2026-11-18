@@ -4,7 +4,9 @@ Start with the standard detector. If edits tend to occur in individual fields, s
 
 Add `--field-classifiers` to the [image training command](training.md). For each field, the model can use its MobileNet descriptor and features from the pixel crop. Fitting a field classifier requires at least two genuine examples and two forgeries tagged for that field with usable measurements. There may be more than one candidate field per forgery.
 
-Each score is put on a common scale using genuine training documents. The detector takes the highest available score from the document classifier and the field classifiers. It then compares that score with a threshold estimated on a separate set of genuine documents. Use the model and threshold from the same run. At prediction time, supply the image and layout as usual.
+The extension refits the document branch using field-specific genuine residuals while retaining the original detector's alignment, offset, strength unit and fallback mean. Each branch score is put on a common scale using genuine training documents. The detector takes the highest available score from the refitted document branch and the field classifiers, then compares it with a threshold estimated on separate genuine calibration documents. The original detector and the extension need their own calibration. At prediction time, supply the image and layout as usual.
+
+The extension improved the saved CrossVerify results and increased miss rates on IDSpace. Figure 10 and Supplementary Figure S6 use the extension as the reference: a positive comparator-minus-reference FNR difference favors the extension. Use the `full-layout` and `field-classifiers` studies in the [reproduction guide](reproduction.md) to inspect the complete comparisons.
 
 See the [class diagram](architecture.md#main-classes) for how the field classifier model uses the document classifier.
 

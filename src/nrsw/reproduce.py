@@ -13,6 +13,7 @@ import numpy as np
 
 
 R62_SHA256 = "c5cbbd107a9774fd604eb311a59c7d87184d8e5b68a70569655ea21313f6b9d1"
+DATA_SHA256 = "4c4a1b88c872712a542c64fc78bb6bb63f6a60b69d6ac0c4b848e5c7342a7229"
 TARGETS = (1, 5, 10)
 BUDGET = 15
 BUDGET_DIR = "crossverify_label_budget"
@@ -45,11 +46,24 @@ def _require(condition, explanation):
 class _Evidence:
     """Check file hashes as entries are read from the submission ZIP."""
 
-    def __init__(self, archive):
+    def __init__(self, archive, *, study_data=False):
         self.archive = archive
-        self.manifest = json.loads(archive.read("PACKAGE_MANIFEST_R62.json"))["members"]
+        self.study_data = study_data
+        manifest = "PACKAGE_MANIFEST.json" if study_data else "PACKAGE_MANIFEST_R62.json"
+        self.manifest = json.loads(archive.read(manifest))["members"]
+
+    def _member(self, name):
+        if self.study_data:
+            if name == RAW_RUNTIME:
+                return "submission_evidence/reproduction/image_reproduction.zip"
+            if name.startswith("reviewer_evidence_r52/"):
+                return name.replace("reviewer_evidence_r52/", "idspace_estimators/", 1)
+            if name.startswith(f"{BUDGET_DIR}/sealed_scores/"):
+                return name.replace("/sealed_scores/", "/saved_scores/", 1)
+        return name
 
     def read(self, name):
+        name = self._member(name)
         data = self.archive.read(name)
         record = self.manifest[name]
         _require(len(data) == record["bytes"] and sha256(data).hexdigest() == record["sha256"],
@@ -220,10 +234,23 @@ def _r62_evidence(path):
             yield _Evidence(archive)
 
 
+@contextmanager
+def _study_evidence(path):
+    """Accept only the checksum-pinned study data or preserved original archive."""
+    with path.open("rb") as stream:
+        digest = file_digest(stream, "sha256").hexdigest()
+        _require(digest in (DATA_SHA256, R62_SHA256),
+                 f"The study ZIP must have SHA-256 {DATA_SHA256} or {R62_SHA256}. Found {digest}")
+        stream.seek(0)
+        with ZipFile(stream) as archive:
+            yield _Evidence(archive, study_data=digest == DATA_SHA256), digest
+
+
 def reproduce(path: Path, svk_scores: Path | None = None) -> dict:
-    """Verify the immutable manuscript ZIP and replay the supported headline results."""
-    with _r62_evidence(path) as evidence:
-        report = dict(revision="R62", archive_sha256=R62_SHA256, roc_fpr_targets_percent=list(TARGETS),
+    """Verify the study ZIP and replay the supported headline results."""
+    with _study_evidence(path) as (evidence, digest):
+        report = dict(revision="STUDY" if evidence.study_data else "R62", archive_sha256=digest,
+                      roc_fpr_targets_percent=list(TARGETS),
                       crossverify_recomputed_from_scores=_run_crossverify(evidence),
                       svk_archived_aggregates=_read_svk(evidence))
         if svk_scores is not None:
@@ -246,7 +273,7 @@ def _display(report):
         "GLOBAL_ONLY": "Whole-image features",
         "FROZEN_SHARED_CORE": "Historical shared core",
     }
-    print("Verified the submission ZIP. ROC false-positive-rate targets are 1%, 5%, and 10%.\n")
+    print("Verified the study ZIP. ROC false-positive-rate targets are 1%, 5%, and 10%.\n")
     cv = report["crossverify_recomputed_from_scores"]
     print("CrossVerify registry card, recomputed from archived test scores")
     print(f"{cv['held_images']} images, {cv['records']} records, {cv['forged_training_images_per_fit']} forged labels per fit, "
@@ -289,20 +316,21 @@ def _display(report):
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Recompute the paper's results from saved scores.")
-    parser.add_argument("archive", type=Path, help="Paper and results ZIP")
+    parser.add_argument("archive", type=Path, help="NRSW_IPM_data.zip or the preserved original study ZIP")
     parser.add_argument("--svk-scores", type=Path, help="Optional IDSpace score ZIP")
     parser.add_argument("--json", action="store_true", help="Print rates and paired intervals as JSON")
-    parser.add_argument("--extract-r5", type=Path, metavar="ZIP", help="Copy the image reproduction tools to a new ZIP and exit")
+    parser.add_argument("--extract-image-runtime", "--extract-r5", dest="extract_runtime", type=Path,
+                        metavar="ZIP", help="Copy the matching image reproduction tools to a new ZIP and exit")
     args = parser.parse_args(argv)
-    if args.extract_r5 is not None and (args.svk_scores is not None or args.json):
-        parser.error("--extract-r5 is a separate operation")
+    if args.extract_runtime is not None and (args.svk_scores is not None or args.json):
+        parser.error("--extract-image-runtime is a separate operation")
     try:
-        if args.extract_r5 is not None:
-            with _r62_evidence(args.archive) as evidence:
+        if args.extract_runtime is not None:
+            with _study_evidence(args.archive) as (evidence, _):
                 data = evidence.read(RAW_RUNTIME)
-            with args.extract_r5.open("xb") as stream:
+            with args.extract_runtime.open("xb") as stream:
                 stream.write(data)
-            print(f"Copied image reproduction tools to {args.extract_r5}")
+            print(f"Copied image reproduction tools to {args.extract_runtime}")
             return 0
         report = reproduce(args.archive, args.svk_scores)
     except (OSError, ValueError, BadZipFile, KeyError) as exc:

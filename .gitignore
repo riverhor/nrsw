@@ -35,3 +35,8 @@ weights/
 *.pickle
 .DS_Store
 Thumbs.db
+
+/NRSW_research_data.zip
+/NRSW_IPM_*.zip
+/study-data/
+/replay_work*/

@@ -21,7 +21,7 @@ nrsw serve
 
 ## 復現論文結果
 
-依照[原始影像復現指南](docs/raw-reproduction.md)下載資料、擷取特徵、訓練及評估偵測器。[復現指南](docs/reproduction.md)列出各項實驗所需的檔案，以及如何用 CPU 和已保存的預測分數核對論文數字。
+[復現指南](docs/reproduction.md)提供五項 CPU 分數重播流程，使用另行取得的研究資料包，也包含 Figure 10 與補充 Figure S6 以加入欄位分類器的 NRSW 為基準的比較。[原始影像復現指南](docs/raw-reproduction.md)說明如何使用配套原始碼和資料，下載影像、擷取特徵、訓練及評估主要實驗。
 
 ## 用自己的影像訓練
 

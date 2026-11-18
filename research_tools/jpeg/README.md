@@ -2,7 +2,7 @@
 
 The study applies JPEG quality 85 and 4:2:0 chroma subsampling to the same 16,260 decoded Slovak IDSpace images for every method. The original document splits, field locations and annotations are reused. The decoded source images retain effects of their original encoding. The added JPEG step gives them common output settings.
 
-Follow the [image-based setup](../../docs/raw-reproduction.md#setup) from the repository root. Run the original-image experiment first to download the images and weights and prepare the data needed for the paired comparison. For a single command that runs the JPEG refit, see the [IDSpace instructions](../../docs/raw-reproduction.md#slovak-idspace). The commands below let you run the steps separately. The JPEG settings were verified with Pillow 12.2.0, libjpeg API 8.0 and libjpeg-turbo 3.1.4.1.
+Follow the [image-based setup](../../docs/archived-image-workflows.md#setup) from the repository root. Run the original-image experiment first to download the images and weights and prepare the data needed for the paired comparison. For a single command that runs the JPEG refit, see the [IDSpace instructions](../../docs/archived-image-workflows.md#slovak-idspace). The commands below let you run the steps separately. The JPEG settings were verified with Pillow 12.2.0, libjpeg API 8.0 and libjpeg-turbo 3.1.4.1.
 
 ## Refit after JPEG recompression
 

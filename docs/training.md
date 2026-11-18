@@ -43,7 +43,7 @@ To try NRSW with field classifiers, add `--field-classifiers` to `fit-images` an
 
 ## Worked IDSpace image example
 
-The [IDSpace image guide](raw-reproduction.md#slovak-idspace) shows how to unpack the paper's reproduction files and download the two SVK image archives. After its setup and download steps, run the following commands from the repository root. The first command prepares one split, and the tutorial uses that split's images and annotations.
+The [IDSpace image guide](archived-image-workflows.md#slovak-idspace) shows how to unpack the paper's reproduction files and download the two SVK image archives. After its setup and download steps, run the following commands from the repository root. The first command prepares one split, and the tutorial uses that split's images and annotations.
 
 ```console
 python -m research_tools.svk --work runs/paper prepare --context f0_d3_o0
@@ -66,7 +66,7 @@ In a CUDA check, 447 of the 450 training, calibration and test images had all 11
 
 ## Train from archived IDSpace features
 
-The [original IDSpace workflow](reproduction.md#archived-workflow) uses the full test set with field recovery applied by role. After generating its `measurements/` directory, use the script below to convert the archived features while keeping the original roles, folds and annotations. Pass the unpacked `package/` directory to the script. The NRSW CLI computes the feature alignment offset from the training anchors and the supplied historical genuine mean. The archived software also supports loading the saved offset directly.
+The [original IDSpace workflow](archived-image-workflows.md#slovak-idspace) uses the full test set with field recovery applied by role. After generating its `measurements/` directory, use the script below to convert the archived features while keeping the original roles, folds and annotations. Pass the unpacked `package/` directory to the script. The NRSW CLI computes the feature alignment offset from the training anchors and the supplied historical genuine mean. The archived software also supports loading the saved offset directly.
 
 ```console
 python examples/tutorial_r29_features.py --companion path/to/companion/package --metadata path/to/companion/metadata --measurements path/to/companion/measurements --output runs/idspace-archived/features.npz

@@ -1,6 +1,6 @@
 # CrossVerify experiments
 
-Start with the [image-based setup](../../docs/raw-reproduction.md#setup) and save the manuscript archive as `paper.zip`. Run the commands below from the repository root with that environment active.
+Start with the [image-based setup](../../docs/archived-image-workflows.md#setup) and save the manuscript archive as `paper.zip`. Run the commands below from the repository root with that environment active.
 
 ## Registry card with 15 labeled forgeries
 

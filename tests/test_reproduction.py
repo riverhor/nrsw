@@ -1,8 +1,14 @@
+from hashlib import sha256
+from io import BytesIO
+import json
+from zipfile import ZipFile
+
 import numpy as np
 import pytest
 
 from nrsw.replay_svk import RANKS, _fold_points
-from nrsw.reproduce import _roc_fnr, reproduce
+from nrsw.reproduce import BUDGET_DIR, CROSSED_SVK, RAW_RUNTIME, _Evidence, _roc_fnr, reproduce
+from nrsw.cli import build_parser
 
 
 def test_crossverify_roc_uses_whole_score_ties_and_preserves_multiplicity():
@@ -31,5 +37,39 @@ def test_reproduce_rejects_unknown_archive(tmp_path):
     archive = tmp_path / "submission.zip"
     archive.write_bytes(b"Different package")
 
-    with pytest.raises(ValueError, match="The submission ZIP must have SHA-256"):
+    with pytest.raises(ValueError, match="The study ZIP must have SHA-256"):
         reproduce(archive)
+
+
+@pytest.mark.parametrize("option", ["--extract-image-runtime", "--extract-r5"])
+def test_public_reproduction_command_accepts_current_and_original_runtime_options(option):
+    args = build_parser().parse_args(["reproduce", "study.zip", option, "runtime.zip"])
+    assert str(args.extract_r5) == "runtime.zip"
+
+
+@pytest.mark.parametrize("study_data", [False, True])
+def test_evidence_checks_actual_member_hashes_after_resolving_names(study_data):
+    names = {
+        f"{BUDGET_DIR}/sealed_scores/nrsw_v2/TEST_SCORES.npz":
+            f"{BUDGET_DIR}/saved_scores/nrsw_v2/TEST_SCORES.npz",
+        CROSSED_SVK: "idspace_estimators/weight_strength/independent_outcome_audit.json",
+        RAW_RUNTIME: "submission_evidence/reproduction/image_reproduction.zip",
+        "submission_evidence/svk/RESULTS.json": "submission_evidence/svk/RESULTS.json",
+    }
+    payload = b"preserved evidence bytes"
+    members = {new if study_data else old: {"bytes": len(payload), "sha256": sha256(payload).hexdigest()}
+               for old, new in names.items()}
+    manifest = "PACKAGE_MANIFEST.json" if study_data else "PACKAGE_MANIFEST_R62.json"
+    packet = BytesIO()
+    with ZipFile(packet, "w") as archive:
+        archive.writestr(manifest, json.dumps({"members": members}))
+        for name in members:
+            archive.writestr(name, payload)
+    with ZipFile(packet) as archive:
+        evidence = _Evidence(archive, study_data=study_data)
+        for name in names:
+            assert evidence.read(name) == payload
+        first = evidence._member(next(iter(names)))
+        evidence.manifest[first]["sha256"] = "0" * 64
+        with pytest.raises(ValueError, match="Checksum mismatch"):
+            evidence.read(next(iter(names)))

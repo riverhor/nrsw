@@ -21,7 +21,7 @@ To enable uploads in your local copy, [start the demo with a registered detector
 
 ## Reproduce the paper
 
-The [raw-image guide](docs/raw-reproduction.md) shows how to download the datasets, extract features, train the detectors and evaluate them. The [reproduction guide](docs/reproduction.md) lists the files for each experiment and shows how to check the reported numbers on a CPU using saved predictions.
+The [reproduction guide](docs/reproduction.md) covers five CPU score replays using the separately supplied study-data bundle, including Figure 10 and Supplementary Figure S6 with NRSW with field classifiers as the reference. The [raw-image guide](docs/raw-reproduction.md) shows how to use the matching source and data to download publisher images, extract features, train and evaluate the primary experiments.
 
 ## Fit a detector
 
